@@ -12,6 +12,7 @@ Este proyecto es un **ejercicio educativo** que demuestra:
 - Implementación del patrón CQRS (Command Query Responsibility Segregation)
 - Operaciones CRUD básicas de transferencias bancarias
 - Gestión de DTOs y servicios
+- Validaciones de negocio robustas
 
 ## 🏗️ Arquitectura del Proyecto
 
@@ -21,24 +22,28 @@ El proyecto sigue una estructura organizada en capas:
 src/main/java/com/drtx/bank/
 ├── command/
 │   ├── handler/
-│   │   └── TransferCommandHandler.java
+│   │   └── TransferCommandHandler.java        ✅ Completo
 │   └── model/
-│       └── TransferMoneyCommand.java
+│       └── TransferMoneyCommand.java          ✅ Completo
 ├── controller/
-│   └── TransferController.java
+│   ├── ClientController.java                  ✅ Completo
+│   ├── TransferController.java                ✅ Completo
+│   └── TransferQueryController.java           ✅ Completo
 ├── entity/
-│   ├── Client.java
-│   └── Transfer.java
+│   ├── Client.java                            ✅ Completo
+│   └── Transfer.java                          ✅ Completo
 ├── query/
 │   ├── dto/
-│   │   └── ClientDto.java
+│   │   ├── ClientDto.java                     ✅ Completo
+│   │   └── TransferDto.java                   ✅ Completo
 │   └── service/
-│       └── ClientQueryService.java
+│       ├── ClientQueryService.java            ✅ Completo
+│       └── TransferQueryService.java          ✅ Completo
 ├── repository/
-│   ├── ClientRepository.java
-│   └── TransferRepository.java
+│   ├── ClientRepository.java                  ✅ Mejorado
+│   └── TransferRepository.java                ✅ Mejorado
 ├── service/
-│   └── TransferService.java
+│   └── TransferService.java                   ✅ Mejorado
 └── BankApplication.java
 ```
 
@@ -61,7 +66,9 @@ Registra cada transferencia bancaria:
 
 ## 🔌 API REST
 
-### Endpoint de Transferencia
+### Endpoints de Transferencia
+
+#### Crear Transferencia (COMMAND)
 - **POST** `/transfer`
 - **Body (JSON)**:
   ```json
@@ -72,6 +79,30 @@ Registra cada transferencia bancaria:
   }
   ```
 - **Response**: `"Transferencia realizada con éxito"`
+
+#### Consultar Transferencia (QUERY)
+- **GET** `/transfers/{transferId}`
+- **Response**: Detalles de la transferencia
+
+#### Consultar Transferencias por Cliente
+- **GET** `/transfers/from/{clientId}` - Transferencias enviadas
+- **GET** `/transfers/to/{clientId}` - Transferencias recibidas
+- **GET** `/transfers` - Todas las transferencias
+
+### Endpoints de Clientes
+
+#### Obtener Cliente por ID
+- **GET** `/clients/{clientId}`
+- **Response**: Datos del cliente (id, dni, name, balance)
+
+#### Obtener Cliente por DNI
+- **GET** `/clients/dni/{dni}`
+
+#### Buscar Clientes por Nombre
+- **GET** `/clients/search?name=Juan`
+
+#### Obtener Todos los Clientes
+- **GET** `/clients`
 
 ## 🗄️ Base de Datos
 
@@ -98,31 +129,62 @@ Registra cada transferencia bancaria:
   - lombok (reducción de boilerplate)
   - h2 (base de datos en memoria)
 
-## 🚀 Estado Actual
+## ✅ Estado Actual
 
 - ✅ Estructura base completada
 - ✅ Entidades JPA configuradas
-- ✅ Repositorios implementados
-- ✅ API REST básica funcional
-- ✅ Patrón CQRS iniciado (carpetas command/query)
-- ⚠️ Tests unitarios mínimos
-- ⚠️ Validaciones de negocio pendientes (verificar saldos)
-- ⚠️ Manejo de errores mejorable
+- ✅ Repositorios implementados con métodos de búsqueda
+- ✅ API REST completamente funcional
+- ✅ Patrón CQRS completamente implementado
+  - ✅ Command: TransferCommandHandler procesa comandos de transferencia
+  - ✅ Query: TransferQueryService y ClientQueryService para consultas
+- ✅ DTOs completos (ClientDto, TransferDto)
+- ✅ Validaciones robustas de negocio:
+  - Verificar saldo suficiente
+  - Validar montos positivos y mínimos
+  - Validar que clientes existan
+  - Prevenir transferencias a mismo cliente
+  - Manejo detallado de errores
+- ✅ Transacciones ACID para transferencias (@Transactional)
+- ✅ Búsqueda avanzada de clientes (por nombre, DNI)
+- ✅ Búsqueda avanzada de transferencias (por cliente origen/destino)
 
-## 📝 Próximas Mejoras Sugeridas
+## 📝 Características Implementadas
 
-1. Implementar validación de transferencias:
-   - Verificar saldo suficiente
-   - Validar montos positivos
-   - Validar que clientes existan
+### Command Pattern (CQRS)
+- **TransferCommandHandler**: Procesa comandos de transferencia
+- **TransferMoneyCommand**: DTO que encapsula los datos de comando
+- Separación clara entre lectura y escritura
 
-2. Mejorar manejo de excepciones y errores
+### Query Pattern (CQRS)
+- **ClientQueryService**: Servicio especializado para consultas de clientes
+- **TransferQueryService**: Servicio especializado para consultas de transferencias
+- DTOs dedicados para respuestas de lectura
 
-3. Expandir el CQRS con más queries y handlers
+### Validaciones Implementadas
+- Montos válidos (> 0, >= 0.01)
+- Clientes existentes
+- Saldo suficiente en cliente origen
+- Prevención de auto-transferencias
+- Nulidad de parámetros
 
-4. Agregar tests unitarios e integración
+### Transaccionalidad
+- `@Transactional` en métodos críticos
+- Garantiza consistencia de datos
+- Actualización atómica de saldos y registro de transferencias
 
-5. Considerar transacciones ACID para transferencias
+## 🚀 Próximas Mejoras Posibles
+
+1. **Seguridad**: Implementar Spring Security + JWT (mencionado como futuro)
+2. **Validaciones avanzadas**: 
+   - Límites de transferencia diaria
+   - Tipos de clientes diferentes
+3. **Auditoría**: Registrar quién realizó cada operación
+4. **Eventos**: Event sourcing para cambios en cuentas
+5. **Testing**: Suite completa de tests unitarios e integración
+6. **Documentación API**: Swagger/OpenAPI
+7. **Manejo de excepciones**: Custom exceptions y ControllerAdvice
+8. **Paginación**: Para listados grandes de transferencias
 
 ## 🏃 Cómo Ejecutar
 
@@ -136,6 +198,24 @@ Registra cada transferencia bancaria:
 # La aplicación estará disponible en http://localhost:8080
 ```
 
+### Ejemplo de Uso
+
+```bash
+# Crear una transferencia
+curl -X POST http://localhost:8080/transfer \
+  -H "Content-Type: application/json" \
+  -d '{"fromClientId": 1, "toClientId": 2, "amount": 100.0}'
+
+# Obtener información de un cliente
+curl http://localhost:8080/clients/1
+
+# Obtener todas las transferencias
+curl http://localhost:8080/transfers
+
+# Buscar transferencias enviadas por cliente 1
+curl http://localhost:8080/transfers/from/1
+```
+
 ## 📦 Git
 
 El repositorio está inicializado con Git (`.git/` presente) para control de versiones.
@@ -143,3 +223,5 @@ El repositorio está inicializado con Git (`.git/` presente) para control de ver
 ---
 
 **Última actualización**: Febrero 2026
+**Estado**: ✅ Completado - Listo para uso educativo
+
