@@ -31,14 +31,9 @@ public class TransferService {
                 .orElseThrow(() -> new RuntimeException("Destination client does not exist with ID: " + toClientId));
 
         // Validar que no sean el mismo cliente
-        if (from.getId().equals(to.getId())) {
-            throw new RuntimeException("Cannot transfer to the same client");
-        }
-
+        if (from.getId().equals(to.getId()))throw new RuntimeException("Cannot transfer to the same client");
         // Validar saldo suficiente
-        if (from.getBalance() < amount) {
-            throw new RuntimeException("Origin client does not have enough balance. Available: " + from.getBalance() + ", Required: " + amount);
-        }
+        if (from.getBalance() < amount) throw new RuntimeException("Origin client does not have enough balance. Available: " + from.getBalance() + ", Required: " + amount);
 
         // Realizar la transferencia
         from.setBalance(from.getBalance() - amount);
@@ -59,20 +54,10 @@ public class TransferService {
     }
 
     private void validateTransferRequest(Long fromClientId, Long toClientId, Double amount) {
-        if (fromClientId == null) {
-            throw new IllegalArgumentException("Origin client ID cannot be null");
-        }
-        if (toClientId == null) {
-            throw new IllegalArgumentException("Destination client ID cannot be null");
-        }
-        if (amount == null) {
-            throw new IllegalArgumentException("Transfer amount cannot be null");
-        }
-        if (amount <= 0) {
-            throw new IllegalArgumentException("Transfer amount must be greater than 0");
-        }
-        if (amount < MINIMUM_AMOUNT) {
-            throw new IllegalArgumentException("Transfer amount must be at least " + MINIMUM_AMOUNT);
-        }
+        if (fromClientId == null) throw new IllegalArgumentException("Origin client ID cannot be null");
+        if (toClientId == null) throw new IllegalArgumentException("Destination client ID cannot be null");
+        if (amount == null) throw new IllegalArgumentException("Transfer amount cannot be null");
+        if (amount <= 0) throw new IllegalArgumentException("Transfer amount must be greater than 0");
+        if (amount < MINIMUM_AMOUNT) throw new IllegalArgumentException("Transfer amount must be at least " + MINIMUM_AMOUNT);
     }
 }
