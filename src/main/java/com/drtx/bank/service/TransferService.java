@@ -6,19 +6,16 @@ import com.drtx.bank.repository.ClientRepository;
 import com.drtx.bank.repository.TransferRepository;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
+@RequiredArgsConstructor
 public class TransferService {
     private final ClientRepository clientRepository;
     private final TransferRepository transferRepository;
-
-    public TransferService(ClientRepository clientRepository, TransferRepository transferRepository) {
-        this.clientRepository = clientRepository;
-        this.transferRepository = transferRepository;
-    }
 
     @Transactional
     public void transfer(Long fromClientId, Long toClientId, Double amount) {
