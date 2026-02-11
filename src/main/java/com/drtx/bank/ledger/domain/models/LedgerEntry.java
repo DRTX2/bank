@@ -1,4 +1,4 @@
-package com.drtx.bank.ledger.models;
+package com.drtx.bank.ledger.domain.models;
 
 import java.math.BigDecimal;
 
