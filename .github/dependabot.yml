@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: maven
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      spring: { patterns: ['org.springframework*'] }
+      grpc-protobuf: { patterns: ['io.grpc*', 'com.google.protobuf*'] }
+  - package-ecosystem: npm
+    directory: /web
+    schedule: { interval: weekly }
+    groups:
+      react: { patterns: ['react', 'react-dom', '@types/react*', 'react-router'] }
+      lint: { patterns: ['eslint*', '@eslint/*', 'typescript-eslint', 'prettier'] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: docker
+    directories: [/services, /web]
+    schedule: { interval: weekly }
+  - package-ecosystem: terraform
+    directories: [/infra/terraform/envs/dev, /infra/terraform/envs/prod, /infra/terraform/bootstrap]
+    schedule: { interval: weekly }

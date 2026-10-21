@@ -1,0 +1,2 @@
+# rule-id	action	justification
+10049	IGNORE	SPA assets are content-hashed and cached on purpose

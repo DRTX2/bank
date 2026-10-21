@@ -1,0 +1,34 @@
+# Dynamic testing: boots the full stack with docker compose and runs the OWASP ZAP baseline scan against it.
+name: DAST
+
+on:
+  schedule:
+    - cron: '41 6 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      issues: write # ZAP opens/updates an issue with findings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start stack
+        run: |
+          docker compose up -d --build --wait --wait-timeout 600 postgres kafka
+          docker compose up -d --build core-banking risk-engine web
+          for _ in $(seq 1 60); do curl -fs http://localhost:8088/api/v1/auth/tenants && break; sleep 5; done
+      - uses: zaproxy/action-baseline@de8ad967d3548d44ef623df22cf95c3b0baf8b25 # v0.15.0
+        with:
+          target: http://localhost:8088
+          rules_file_name: .zap/rules.tsv
+          cmd_options: -a
+      - if: always()
+        run: docker compose down -v

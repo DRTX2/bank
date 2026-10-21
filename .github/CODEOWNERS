@@ -1,0 +1,5 @@
+# Security-sensitive paths require an explicit review.
+*                                   @DRTX2
+/services/core-banking/src/main/java/com/drtx/bank/shared/security/  @DRTX2
+/infra/                             @DRTX2
+/.github/workflows/                 @DRTX2

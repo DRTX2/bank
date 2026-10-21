@@ -1,0 +1,98 @@
+spring:
+  application:
+    name: core-banking
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/kuntur}
+    username: ${DB_USER:kuntur}
+    password: ${DB_PASSWORD:kuntur}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        default_batch_fetch_size: 50
+  flyway:
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    producer:
+      acks: all
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        enable.idempotence: true
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: latest
+
+server:
+  shutdown: graceful
+  error:
+    include-stacktrace: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,sbom
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  tracing:
+    export:
+      enabled: ${TRACING_EXPORT:false}
+    sampling:
+      probability: ${TRACING_SAMPLING:0.1}
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${OTLP_TRACES_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:}
+
+springdoc:
+  api-docs:
+    enabled: ${API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: /swagger-ui.html
+
+bank:
+  security:
+    jwt:
+      issuer: kuntur-core
+      access-token-ttl: 10m
+      refresh-token-ttl: 7d
+      # PEM-encoded RSA keys (PKCS#8 private, X.509 public). Empty => ephemeral key pair (dev only).
+      private-key: ${JWT_PRIVATE_KEY:}
+      public-key: ${JWT_PUBLIC_KEY:}
+    cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:8088}
+    login:
+      max-attempts-per-minute: 10
+      lockout-threshold: 5
+      lockout-duration: 15m
+  risk:
+    target: ${RISK_ENGINE_TARGET:localhost:9090}
+    deadline: 500ms
+    # When the engine is unreachable, transfers below this amount still go through; the rest are held.
+    fail-open-below-minor: 5000
+  kafka:
+    payments-topic: bank.payments.events.v1
+  outbox:
+    poll-interval: 250ms
+  demo:
+    seed: ${DEMO_SEED:false}
+  simulator:
+    enabled: ${SIMULATOR_ENABLED:false}

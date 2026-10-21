@@ -1,0 +1,25 @@
+bank:
+  security:
+    bcrypt-strength: 4
+  demo:
+    seed: true
+  simulator:
+    enabled: true
+  outbox:
+    poll-interval: 100ms
+spring:
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+logging:
+  level:
+    org.apache.kafka: WARN
+    kafka: WARN
+    org.testcontainers: INFO
+---
+bank:
+  security:
+    login:
+      max-attempts-per-minute: 100000
+      lockout-threshold: 5
+      lockout-duration: 15m

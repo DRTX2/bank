@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: risk-engine
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/risk}
+    username: ${DB_USER:kuntur}
+    password: ${DB_PASSWORD:kuntur}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9094}
+    consumer:
+      group-id: risk-engine
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+server:
+  port: ${HTTP_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,sbom
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  structured:
+    format:
+      console: ${LOG_FORMAT:}
+
+risk:
+  grpc-port: ${GRPC_PORT:9090}
+  topic: bank.payments.events.v1
+  timezone: America/Guayaquil
+  review-threshold: 40
+  decline-threshold: 70
+  model-version: rules-2026.10

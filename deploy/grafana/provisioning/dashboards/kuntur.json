@@ -1,0 +1,19 @@
+{
+  "title": "Kuntur: payments and risk",
+  "uid": "kuntur-ops",
+  "schemaVersion": 39,
+  "time": { "from": "now-1h", "to": "now" },
+  "refresh": "10s",
+  "panels": [
+    { "type": "timeseries", "title": "Transfer intake by risk decision (per min)", "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (decision) (rate(kuntur_transfers_intake_total[1m])) * 60", "legendFormat": "{{decision}}" }] },
+    { "type": "timeseries", "title": "Failed transfers by ISO reason (per min)", "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [{ "expr": "sum by (reason) (rate(kuntur_transfers_failed_total[1m])) * 60", "legendFormat": "{{reason}}" }] },
+    { "type": "timeseries", "title": "Risk scoring latency p95 (gRPC)", "fieldConfig": { "defaults": { "unit": "s" } }, "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [{ "expr": "max(kuntur_risk_latency_seconds{quantile=\"0.95\"})", "legendFormat": "p95" }] },
+    { "type": "stat", "title": "Risk engine fallbacks (1h)", "gridPos": { "x": 12, "y": 8, "w": 6, "h": 8 },
+      "targets": [{ "expr": "sum(increase(kuntur_risk_unavailable_total[1h]))" }] },
+    { "type": "stat", "title": "Outbox events published (1h)", "gridPos": { "x": 18, "y": 8, "w": 6, "h": 8 },
+      "targets": [{ "expr": "sum(increase(kuntur_outbox_published_total[1h]))" }] }
+  ]
+}

@@ -1,0 +1,93 @@
+# Manual, approval-gated deployment to AWS. Not wired to any trigger on purpose: it needs the infrastructure from
+# infra/terraform applied first and the repository variables AWS_DEPLOY_ROLE_ARN / AWS_REGION per environment.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [dev, prod]
+        required: true
+      version:
+        description: Image tag published by the Containers workflow (sha-<commit> or semver)
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # GitHub environment: required reviewers for prod; its name is part of the AWS OIDC trust policy.
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      CLUSTER: kuntur-${{ inputs.environment }}
+      VERSION: ${{ inputs.version }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
+      - name: Verify signatures, then promote images to ECR
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPO: ${{ github.repository }}
+        run: |
+          for svc in core-banking risk-engine; do
+            src="ghcr.io/${OWNER}/kuntur-${svc}:${VERSION}"
+            # Only images built and signed by this repository's workflow can reach AWS.
+            cosign verify "$src" \
+              --certificate-identity-regexp "^https://github.com/${REPO}/.github/workflows/containers.yml@" \
+              --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null
+            docker buildx imagetools create --tag "${REGISTRY}/kuntur/${svc}:${VERSION}" "$src"
+          done
+      - name: Roll out ECS services
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+        run: |
+          for svc in risk-engine core-banking; do
+            current=$(aws ecs describe-services --cluster "$CLUSTER" --services "$svc" --query 'services[0].taskDefinition' --output text)
+            aws ecs describe-task-definition --task-definition "$current" --query taskDefinition \
+              | jq --arg img "${REGISTRY}/kuntur/${svc}:${VERSION}" \
+                  '.containerDefinitions[0].image = $img
+                   | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+              > taskdef.json
+            next=$(aws ecs register-task-definition --cli-input-json file://taskdef.json --query taskDefinition.taskDefinitionArn --output text)
+            aws ecs update-service --cluster "$CLUSTER" --service "$svc" --task-definition "$next" > /dev/null
+            # Deployment circuit breaker rolls back automatically if new tasks fail health checks.
+            aws ecs wait services-stable --cluster "$CLUSTER" --services "$svc"
+          done
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Publish web app
+        working-directory: web
+        env:
+          BUCKET: ${{ vars.WEB_BUCKET }}
+          DISTRIBUTION: ${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          aws s3 sync dist/assets "s3://${BUCKET}/assets" --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync dist "s3://${BUCKET}" --delete --exclude "assets/*" --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" --paths /index.html > /dev/null

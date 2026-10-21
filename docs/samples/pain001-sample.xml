@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Replace the IBANs with accounts from your environment (the web app's "Download sample" does it for you). -->
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pain.001.001.09">
+  <CstmrCdtTrfInitn>
+    <GrpHdr>
+      <MsgId>PAYROLL-2026-10</MsgId>
+      <CreDtTm>2026-10-21T09:00:00</CreDtTm>
+      <NbOfTxs>2</NbOfTxs>
+      <CtrlSum>1350.00</CtrlSum>
+      <InitgPty><Nm>Ana Morales Consultores</Nm></InitgPty>
+    </GrpHdr>
+    <PmtInf>
+      <PmtInfId>PAYROLL-OCT</PmtInfId>
+      <PmtMtd>TRF</PmtMtd>
+      <ReqdExctnDt><Dt>2026-10-21</Dt></ReqdExctnDt>
+      <Dbtr><Nm>Ana Morales Consultores</Nm></Dbtr>
+      <DbtrAcct><Id><IBAN>EC00ANDN00000000000000</IBAN></Id></DbtrAcct>
+      <CdtTrfTxInf>
+        <PmtId><EndToEndId>PAYROLL-OCT-001</EndToEndId></PmtId>
+        <Amt><InstdAmt Ccy="USD">850.00</InstdAmt></Amt>
+        <Cdtr><Nm>Luis Guamán</Nm></Cdtr>
+        <CdtrAcct><Id><IBAN>EC00ANDN00000000000001</IBAN></Id></CdtrAcct>
+        <Purp><Cd>SALA</Cd></Purp>
+        <RmtInf><Ustrd>Sueldo octubre</Ustrd></RmtInf>
+      </CdtTrfTxInf>
+      <CdtTrfTxInf>
+        <PmtId><EndToEndId>PAYROLL-OCT-002</EndToEndId></PmtId>
+        <Amt><InstdAmt Ccy="USD">500.00</InstdAmt></Amt>
+        <Cdtr><Nm>Sofía Andrade</Nm></Cdtr>
+        <CdtrAcct><Id><IBAN>EC00ANDN00000000000002</IBAN></Id></CdtrAcct>
+        <Purp><Cd>SALA</Cd></Purp>
+        <RmtInf><Ustrd>Sueldo octubre</Ustrd></RmtInf>
+      </CdtTrfTxInf>
+    </PmtInf>
+  </CstmrCdtTrfInitn>
+</Document>

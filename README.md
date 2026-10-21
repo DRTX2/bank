@@ -1,227 +1,163 @@
-# Banco - Proyecto Spring Boot
+# Kuntur: core banking for cooperatives and fintechs
 
-## 📋 Descripción General
+*Kuntur* is Kichwa for the Andean condor.
 
-**Banco** es una aplicación de demostración desarrollada con **Spring Boot** que implementa un sistema bancario básico para gestionar transferencias de dinero entre clientes.
+Kuntur is a multi-tenant core banking platform: one deployment serves many financial institutions (credit
+unions, fintechs), each fully isolated. It books money on a double-entry ledger, speaks **ISO 20022**, scores
+every payment in real time with an explainable risk engine, and enforces four-eyes control on high-value
+operations.
 
-## 🎯 Propósito
-
-Este proyecto es un **ejercicio educativo** que demuestra:
-- Arquitectura en capas con Spring Boot
-- Manejo de entidades JPA con relaciones Many-to-One
-- Implementación del patrón CQRS (Command Query Responsibility Segregation)
-- Operaciones CRUD básicas de transferencias bancarias
-- Gestión de DTOs y servicios
-- Validaciones de negocio robustas
-
-## 🏗️ Arquitectura del Proyecto
-
-El proyecto sigue una estructura organizada en capas:
+It is a portfolio project. It is also built the way a regulated system has to be: the database refuses
+overdrafts, the audit trail detects tampering, and every endpoint names the permission it requires.
 
 ```
-src/main/java/com/drtx/bank/
-├── command/
-│   ├── handler/
-│   │   └── TransferCommandHandler.java        ✅ Completo
-│   └── model/
-│       └── TransferMoneyCommand.java          ✅ Completo
-├── controller/
-│   ├── ClientController.java                  ✅ Completo
-│   ├── TransferController.java                ✅ Completo
-│   └── TransferQueryController.java           ✅ Completo
-├── entity/
-│   ├── Client.java                            ✅ Completo
-│   └── Transfer.java                          ✅ Completo
-├── query/
-│   ├── dto/
-│   │   ├── ClientDto.java                     ✅ Completo
-│   │   └── TransferDto.java                   ✅ Completo
-│   └── service/
-│       ├── ClientQueryService.java            ✅ Completo
-│       └── TransferQueryService.java          ✅ Completo
-├── repository/
-│   ├── ClientRepository.java                  ✅ Mejorado
-│   └── TransferRepository.java                ✅ Mejorado
-├── service/
-│   └── TransferService.java                   ✅ Mejorado
-└── BankApplication.java
+docker compose up --build        # then open http://localhost:8088
 ```
 
-## 📊 Entidades Principales
-
-### Client (Cliente)
-Representa un cliente del banco con:
-- **id**: Identificador único (auto-generado)
-- **dni**: Documento de identidad
-- **name**: Nombre del cliente
-- **balance**: Saldo disponible en la cuenta
-
-### Transfer (Transferencia)
-Registra cada transferencia bancaria:
-- **id**: Identificador único (auto-generado)
-- **fromClient**: Cliente origen (relación Many-to-One)
-- **toClient**: Cliente destino (relación Many-to-One)
-- **amount**: Monto transferido
-- **timestamp**: Fecha y hora de la transferencia
-
-## 🔌 API REST
-
-### Endpoints de Transferencia
-
-#### Crear Transferencia (COMMAND)
-- **POST** `/transfer`
-- **Body (JSON)**:
-  ```json
-  {
-    "fromClientId": 1,
-    "toClientId": 2,
-    "amount": 100.0
-  }
-  ```
-- **Response**: `"Transferencia realizada con éxito"`
-
-#### Consultar Transferencia (QUERY)
-- **GET** `/transfers/{transferId}`
-- **Response**: Detalles de la transferencia
-
-#### Consultar Transferencias por Cliente
-- **GET** `/transfers/from/{clientId}` - Transferencias enviadas
-- **GET** `/transfers/to/{clientId}` - Transferencias recibidas
-- **GET** `/transfers` - Todas las transferencias
-
-### Endpoints de Clientes
-
-#### Obtener Cliente por ID
-- **GET** `/clients/{clientId}`
-- **Response**: Datos del cliente (id, dni, name, balance)
-
-#### Obtener Cliente por DNI
-- **GET** `/clients/dni/{dni}`
-
-#### Buscar Clientes por Nombre
-- **GET** `/clients/search?name=Juan`
-
-#### Obtener Todos los Clientes
-- **GET** `/clients`
-
-## 🗄️ Base de Datos
-
-- **Tipo**: H2 (Base de datos en memoria)
-- **URL JDBC**: `jdbc:h2:mem:bankdb`
-- **Consola H2**: http://localhost:8080/h2-console
-- **Usuario**: `sa` (sin contraseña)
-
-**Características**:
-- Auto-creación de tablas con Hibernate (`ddl-auto: update`)
-- SQL logging habilitado para depuración
-- Ideal para desarrollo y testing
-
-## 🛠️ Stack Tecnológico
-
-- **Framework**: Spring Boot 3.4.4
-- **Java**: Versión 21
-- **Persistencia**: JPA + Hibernate
-- **Base de Datos**: H2
-- **Build**: Maven
-- **Dependencias clave**:
-  - spring-boot-starter-data-jpa
-  - spring-boot-starter-web
-  - lombok (reducción de boilerplate)
-  - h2 (base de datos en memoria)
-
-## ✅ Estado Actual
-
-- ✅ Estructura base completada
-- ✅ Entidades JPA configuradas
-- ✅ Repositorios implementados con métodos de búsqueda
-- ✅ API REST completamente funcional
-- ✅ Patrón CQRS completamente implementado
-  - ✅ Command: TransferCommandHandler procesa comandos de transferencia
-  - ✅ Query: TransferQueryService y ClientQueryService para consultas
-- ✅ DTOs completos (ClientDto, TransferDto)
-- ✅ Validaciones robustas de negocio:
-  - Verificar saldo suficiente
-  - Validar montos positivos y mínimos
-  - Validar que clientes existan
-  - Prevenir transferencias a mismo cliente
-  - Manejo detallado de errores
-- ✅ Transacciones ACID para transferencias (@Transactional)
-- ✅ Búsqueda avanzada de clientes (por nombre, DNI)
-- ✅ Búsqueda avanzada de transferencias (por cliente origen/destino)
-
-## 📝 Características Implementadas
-
-### Command Pattern (CQRS)
-- **TransferCommandHandler**: Procesa comandos de transferencia
-- **TransferMoneyCommand**: DTO que encapsula los datos de comando
-- Separación clara entre lectura y escritura
-
-### Query Pattern (CQRS)
-- **ClientQueryService**: Servicio especializado para consultas de clientes
-- **TransferQueryService**: Servicio especializado para consultas de transferencias
-- DTOs dedicados para respuestas de lectura
-
-### Validaciones Implementadas
-- Montos válidos (> 0, >= 0.01)
-- Clientes existentes
-- Saldo suficiente en cliente origen
-- Prevención de auto-transferencias
-- Nulidad de parámetros
-
-### Transaccionalidad
-- `@Transactional` en métodos críticos
-- Garantiza consistencia de datos
-- Actualización atómica de saldos y registro de transferencias
-
-## 🚀 Próximas Mejoras Posibles
-
-1. **Seguridad**: Implementar Spring Security + JWT (mencionado como futuro)
-2. **Validaciones avanzadas**: 
-   - Límites de transferencia diaria
-   - Tipos de clientes diferentes
-3. **Auditoría**: Registrar quién realizó cada operación
-4. **Eventos**: Event sourcing para cambios en cuentas
-5. **Testing**: Suite completa de tests unitarios e integración
-6. **Documentación API**: Swagger/OpenAPI
-7. **Manejo de excepciones**: Custom exceptions y ControllerAdvice
-8. **Paginación**: Para listados grandes de transferencias
-
-## 🏃 Cómo Ejecutar
-
-```bash
-# Compilar el proyecto
-./mvnw clean install
-
-# Ejecutar la aplicación
-./mvnw spring-boot:run
-
-# La aplicación estará disponible en http://localhost:8080
-```
-
-### Ejemplo de Uso
-
-```bash
-# Crear una transferencia
-curl -X POST http://localhost:8080/transfer \
-  -H "Content-Type: application/json" \
-  -d '{"fromClientId": 1, "toClientId": 2, "amount": 100.0}'
-
-# Obtener información de un cliente
-curl http://localhost:8080/clients/1
-
-# Obtener todas las transferencias
-curl http://localhost:8080/transfers
-
-# Buscar transferencias enviadas por cliente 1
-curl http://localhost:8080/transfers/from/1
-```
-
-## 📦 Git
-
-El repositorio está inicializado con Git (`.git/` presente) para control de versiones.
+Every demo user's password is `Kuntur2026!`. The login screen offers one-click role switching, so you can see
+how the product changes per role: customer, corporate customer, teller, branch manager, compliance officer,
+auditor, institution admin and platform operator.
 
 ---
 
-**Última actualización**: Febrero 2026
-**Estado**: ✅ Completado - Listo para uso educativo
+## Architecture
 
+```mermaid
+flowchart LR
+  subgraph Browser
+    SPA[React SPA<br/>customer + backoffice]
+  end
+  subgraph Edge
+    CF[CloudFront + S3] --> WAF[AWS WAF] --> ALB
+  end
+  SPA -- HTTPS / WSS --> CF
+  ALB -- REST + STOMP/WebSocket --> CORE
+
+  subgraph CORE[core-banking  ·  Spring Boot 4]
+    API[REST API<br/>RBAC + tenancy] --> PAY[Payments<br/>idempotency, 4-eyes]
+    PAY --> LEDGER[(Double-entry ledger)]
+    PAY --> OUTBOX[(Transactional outbox)]
+    ISO[ISO 20022<br/>pain.001/002 · pacs.008 · camt.053] --> PAY
+    RELAY[Outbox relay] --> OUTBOX
+    WS[WebSocket gateway]
+  end
+
+  PAY -- gRPC ScoreTransfer<br/>500 ms deadline --> RISK
+  RELAY -- bank.payments.events.v1 --> KAFKA[(Kafka / MSK)]
+  KAFKA --> WS
+  KAFKA --> FEAT
+
+  subgraph RISK[risk-engine  ·  gRPC server]
+    RULES[Explainable rules] --> FEAT[(Feature store)]
+  end
+
+  CORE --- PG[(PostgreSQL<br/>kuntur)]
+  RISK --- PG2[(PostgreSQL<br/>risk)]
+```
+
+| Protocol | Used for | Why this one |
+|---|---|---|
+| **REST** | Public API for the web app and integrators | Universal, cacheable, documented with OpenAPI (`/swagger-ui.html`) |
+| **gRPC** | core-banking → risk-engine scoring, synchronous in the payment path | Typed contract (`proto/`), HTTP/2, hard deadlines, ~ms latency |
+| **Kafka** | Domain events (`TransferCompleted`, `TransferRejected`, …) | Decouples consumers: the risk feature store and real-time push evolve independently |
+| **WebSocket (STOMP)** | Live notifications to customers, live operations feed to staff | Server push without polling; fan-out across replicas via Kafka |
+
+A **modular monolith** plus one extracted service is a deliberate choice ([ADR-0001](docs/adr/0001-modular-monolith-plus-risk-service.md)).
+Money movement needs ACID transactions across accounts, ledger, transfer state and outbox. The risk engine
+has a different scaling profile, release cadence and data model, so it is a separate service.
+
+---
+
+## What it does
+
+### For customers
+- **Accounts and movements:** balances update live, and a camt.053 statement downloads in one click.
+- **Transfers:** IBAN-style account numbers with ISO 13616 check digits, so a typo is caught before any money moves. Every transfer is idempotent: retries and double clicks never pay twice.
+- **Bulk payments (corporate):** upload a **pain.001** payroll/supplier file and get back a **pain.002** report with the status and ISO reason code of every payment.
+- **Financial simulators:**
+  - Loan amortization (French and German systems, with credit-life insurance and effective annual rate)
+  - Term deposit (360-day year, withholding tax)
+  - Savings goal planner
+  - Borrowing capacity based on debt-to-income
+
+### For the institution (backoffice)
+- **Live operations:** 24-hour KPIs plus a real-time payment feed over WebSocket. A **traffic simulator** injects synthetic payments with fraud patterns (velocity bursts, amount spikes, mule accounts) to watch the risk engine react.
+- **Risk review queue:** every held payment shows an *explainable* risk meter, i.e. which signal added how many points against the review and decline thresholds.
+- **Four-eyes approvals:** transfers above the institution's threshold wait for a second person. Whoever initiated a transfer can never approve it (enforced in the domain model and covered by tests).
+- **Customers and teller operations:** KYC onboarding, cash deposits and withdrawals, account freezing.
+- **Users, roles and permissions:** a permission matrix with 24 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
+- **Tamper-evident audit trail:** SHA-256 hash chain with one-click integrity verification.
+
+### For the platform operator
+- **Institution provisioning:** creating a tenant atomically creates its roles, cash vault account and first administrator.
+
+---
+
+## Engineering highlights
+
+**Money correctness**
+- Double-entry ledger: every journal entry nets to zero, amounts are `bigint` minor units, and postings are append-only (a database trigger rejects `UPDATE`/`DELETE`).
+- Overdraft is impossible twice over: the domain checks the balance under a row lock, and a database `CHECK` constraint backs it up.
+- Accounts are locked in primary-key order, so concurrent A→B and B→A transfers cannot deadlock. A test fires 20 concurrent transfers at an account that can afford 10: exactly 10 succeed and the balance ends at 0.00.
+- Idempotency keys are scoped per user and fingerprinted by payload. A reused key with a different body gets `422`.
+- A crash-recovery sweep re-drives transfers that were accepted but not yet booked. Booking is idempotent.
+
+**Security (RBAC, multi-tenancy, DevSecOps)**
+- Stateless RS256 JWT access tokens (10 min) carry the effective permissions.
+- Refresh tokens are opaque and stored hashed. They rotate on every use with **reuse detection**: replaying an old token revokes the whole session family (OAuth 2.0 Security BCP).
+- Login has a per-IP rate limit, per-user lockout, and constant-time handling of unknown emails. Passwords are BCrypt.
+- Multi-tenancy uses a shared schema and Hibernate `@TenantId`, and is **fail-closed**: with no tenant bound, queries match nothing. Cross-tenant access must opt in to an explicit system scope ([ADR-0002](docs/adr/0002-multi-tenancy-shared-schema.md)).
+- Ownership-aware authorization (`accounts:read:own` vs `accounts:read:any`). A resource you may not see returns `404`, not `403`, so IDs cannot be enumerated.
+- An architecture test fails the build if any endpoint lacks `@PreAuthorize` or references a permission that does not exist.
+- XML parsing is hardened against XXE (covered by a test). Problem details follow RFC 9457 and never leak internals. The SPA has a strict CSP, and nginx/CloudFront add the security headers.
+
+**Supply chain and pipeline** (`.github/workflows`)
+- CodeQL (Java, TypeScript, Actions), gitleaks, Trivy (dependencies, secrets, IaC, images), dependency review with a license policy, and an OWASP ZAP baseline (DAST) against the full stack.
+- CycloneDX SBOM per build. Images get an SPDX SBOM, are signed keylessly with **cosign**, and are verified before promotion to AWS.
+- Every action is pinned by commit SHA, runners are hardened, and permissions are least-privilege per job. Dependabot covers all 5 ecosystems.
+
+**Observability**
+- Structured ECS JSON logs, Prometheus metrics (`kuntur.transfers.*`, `kuntur.risk.latency` p95/p99, outbox throughput) and OpenTelemetry tracing.
+- `docker compose --profile observability up` adds Prometheus and a provisioned Grafana dashboard.
+
+**Infrastructure as code** (`infra/terraform`, validated with `terraform validate`, tflint and Trivy; nothing is deployed)
+- VPC with public, private and isolated data subnets; flow logs; VPC endpoints. Application tasks have **no internet egress**.
+- ECS Fargate on ARM64 (Graviton): read-only root filesystem, non-root user, all Linux capabilities dropped, Service Connect for gRPC, deployment circuit breaker with automatic rollback, CPU autoscaling.
+- RDS PostgreSQL 17: Multi-AZ, KMS-encrypted, TLS enforced, IAM auth, master password managed and rotated by RDS in Secrets Manager.
+- MSK Serverless with IAM auth.
+- CloudFront + S3 (Origin Access Control) for the SPA. The ALB accepts traffic only from CloudFront's prefix list plus a secret origin header, and is protected by AWS WAF (managed rules plus a login rate limit).
+- GitHub OIDC deploy role scoped to one repository and environment, so no AWS keys exist anywhere. CloudWatch alarms go to SNS.
+
+---
+
+## Repository layout
+
+```
+proto/                    gRPC contract (risk/v1/risk.proto)
+services/core-banking/    Spring Boot 4 · Java 21 · modules: platform, identity, accounts, ledger,
+                          payments (+ iso20022, risk), simulations, realtime, ops, shared (security,
+                          tenancy, audit, outbox)
+services/risk-engine/     gRPC server, Kafka consumer, rule engine, feature store
+web/                      React 19 · TypeScript · Vite · Tailwind · TanStack Query · STOMP
+infra/terraform/          modules/{network,data,ecs-service,edge,static-site,github-oidc,platform}
+                          envs/{dev,prod} · bootstrap (remote state)
+deploy/                   Postgres init, Prometheus, Grafana provisioning
+docs/                     ADRs, threat model, ISO 20022 notes, sample pain.001
+```
+
+## Running and testing
+
+| Command | What it does |
+|---|---|
+| `docker compose up --build` | Full stack with demo data on http://localhost:8088 |
+| `./mvnw verify` | 100 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
+| `cd web && npm ci && npm run lint && npm test` | ESLint (strict type-checked + a11y + security rules), Vitest |
+| `cd web && npm run dev` | Front end with hot reload against a backend on :8080 |
+| `make help` | Every shortcut, including Terraform validation and security scans |
+
+## Documentation
+
+- [Architecture decisions (ADRs)](docs/adr)
+- [Threat model (STRIDE)](docs/threat-model.md)
+- [ISO 20022 implementation notes](docs/iso20022.md)
+- [Security policy](SECURITY.md)

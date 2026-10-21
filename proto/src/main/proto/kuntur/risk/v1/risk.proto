@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package kuntur.risk.v1;
+
+option java_multiple_files = true;
+option java_package = "com.drtx.bank.proto.risk.v1";
+
+import "google/protobuf/timestamp.proto";
+
+// Synchronous, low-latency risk scoring called by core-banking before a transfer is booked.
+// The engine keeps its own feature store fed asynchronously from Kafka (bank.payments.events.v1).
+service RiskService {
+  rpc ScoreTransfer(ScoreTransferRequest) returns (ScoreTransferResponse);
+}
+
+message ScoreTransferRequest {
+  string tenant_id = 1;
+  string transfer_id = 2;
+  string source_account_id = 3;
+  string destination_account_id = 4;
+  int64 amount_minor = 5;
+  string currency = 6;
+  string initiated_by = 7;
+  google.protobuf.Timestamp requested_at = 8;
+}
+
+enum Decision {
+  DECISION_UNSPECIFIED = 0;
+  DECISION_APPROVE = 1;
+  DECISION_REVIEW = 2;
+  DECISION_DECLINE = 3;
+}
+
+message RiskSignal {
+  string code = 1;        // e.g. VELOCITY_10M, AMOUNT_SPIKE
+  int32 weight = 2;       // contribution to the score
+  string description = 3;
+}
+
+message ScoreTransferResponse {
+  int32 score = 1;        // 0..100
+  Decision decision = 2;
+  repeated RiskSignal signals = 3;
+  string model_version = 4;
+}
