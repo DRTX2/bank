@@ -12,6 +12,7 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
+import com.drtx.bank.identity.MfaService;
 import com.drtx.bank.shared.security.CurrentUser;
 import com.drtx.bank.shared.web.Amounts;
 
@@ -32,9 +33,11 @@ import org.springframework.web.bind.annotation.RestController;
 class TransferController {
 
     private final TransferService transfers;
+    private final MfaService mfa;
 
-    TransferController(TransferService transfers) {
+    TransferController(TransferService transfers, MfaService mfa) {
         this.transfers = transfers;
+        this.mfa = mfa;
     }
 
     record CreateTransferRequest(@NotNull UUID sourceAccountId, @NotBlank @Size(max = 34) String destinationAccountNumber,
@@ -42,7 +45,8 @@ class TransferController {
                                  @Pattern(regexp = "[A-Z]{4}") String purposeCode) {
     }
 
-    record Decision(@Size(max = 255) String note) {
+    /** {@code otp} is the approver's step-up code; rejecting does not need one. */
+    record Decision(@Size(max = 255) String note, @Size(max = 10) String otp) {
     }
 
     record Review(@NotNull Boolean release, @NotBlank @Size(max = 255) String note) {
@@ -97,6 +101,7 @@ class TransferController {
     @PostMapping("/{id}/approve")
     @PreAuthorize("hasAuthority('transfers:approve')")
     TransferView approve(CurrentUser user, @PathVariable UUID id, @Valid @RequestBody Decision body) {
+        mfa.requireStepUp(user, body.otp());
         return TransferView.of(transfers.approve(user, id, body.note()));
     }
 

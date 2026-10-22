@@ -73,6 +73,8 @@ services:
       RISK_ENGINE_TARGET: risk-engine:9090
       DEMO_SEED: "true"
       SIMULATOR_ENABLED: "true"
+      # Local demo: every browser and the E2E suite share the Docker gateway IP; production keeps 10 + WAF.
+      LOGIN_RATE_LIMIT: "300"
       CORS_ORIGINS: http://localhost:8088,http://localhost:5173
     ports: ["8080:8080"]
     depends_on:

@@ -1,0 +1,9 @@
+# Default gitleaks rules plus two allowlisted values, both public by design: the demo TOTP secret for
+# gerente@andina.ec (published like the demo password so reviewers can try MFA, ADR-0008) and the RFC 6238
+# appendix B test seed used by the TOTP tests.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Published demo TOTP secret and RFC 6238 test vector"
+regexes = ['''KUNTURDEMOGERENTEMFAANDINAKUNTUR''', '''GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ''']

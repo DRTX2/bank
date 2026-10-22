@@ -6,7 +6,8 @@ import { RiskMeter } from '../../components/RiskMeter';
 import { StatusPill } from '../../components/StatusPill';
 import { Button, ErrorNote, Field, Money, PageHeader, Select } from '../../components/ui';
 import { api, ApiError, newIdempotencyKey } from '../../lib/api';
-import { groupIban } from '../../lib/format';
+import { errorText, isoReasons } from '../../lib/errors';
+import { groupIban, money } from '../../lib/format';
 import type { Account, Transfer } from '../../lib/types';
 
 interface Lookup {
@@ -66,7 +67,7 @@ export function TransferPage() {
         ),
       );
     } catch (e) {
-      setLookupError(e instanceof ApiError ? e.message : 'No pudimos verificar la cuenta');
+      setLookupError(e instanceof ApiError ? errorText(e) : 'No pudimos verificar la cuenta');
     }
   }
 
@@ -98,7 +99,11 @@ export function TransferPage() {
           </p>
           <p className="mt-1 text-ink-2">a {groupIban(result.destinationAccountNumber)}</p>
           <p className="mt-4">{outcomeCopy[result.status] ?? 'Transferencia registrada.'}</p>
-          {result.failureReason && <p className="mt-1 text-sm text-ink-2">{result.failureReason}</p>}
+          {result.failureCode && (
+            <p className="mt-1 text-sm text-ink-2">
+              {isoReasons[result.failureCode] ?? result.failureReason}
+            </p>
+          )}
           {result.riskScore !== null && result.riskScore > 0 && (
             <div className="mt-6 border-t border-line pt-5">
               <RiskMeter score={result.riskScore} signals={result.riskSignals} />
@@ -128,7 +133,7 @@ export function TransferPage() {
           >
             {accounts.data?.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.alias ?? a.type} ({groupIban(a.number)}) — disponible {a.balance.toFixed(2)} {a.currency}
+                {a.alias ?? a.type} ({groupIban(a.number)}) — disponible {money(a.balance, a.currency)}
               </option>
             ))}
           </Select>
@@ -160,7 +165,7 @@ export function TransferPage() {
             }}
             hint={
               sourceAccount
-                ? `Límite diario: ${sourceAccount.dailyLimit.toFixed(2)} ${sourceAccount.currency}`
+                ? `Límite diario: ${money(sourceAccount.dailyLimit, sourceAccount.currency)}`
                 : undefined
             }
           />

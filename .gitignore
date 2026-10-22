@@ -24,3 +24,11 @@ crash.log
 *.iml
 .vscode/
 .DS_Store
+
+# Claude Code (personal)
+CLAUDE.local.md
+.claude/settings.local.json
+.claude/local/
+playwright-report/
+test-results/
+*.tsbuildinfo

@@ -2,7 +2,7 @@
 TF := docker run --rm -u $$(id -u):$$(id -g) -e HOME=/tmp -v $(CURDIR)/infra/terraform:/w -w /w hashicorp/terraform:1.16.5
 
 help: ## List targets
-	@grep -E '^[a-z-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*##' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
 
 up: ## Start the full stack with demo data (http://localhost:8088)
 	docker compose up --build -d
@@ -17,6 +17,12 @@ test: ## Backend + frontend tests
 	./mvnw -B verify
 	cd web && npm ci && npm run lint && npm run typecheck && npm test
 
+e2e: ## Playwright end-to-end suite against the running stack (make up first)
+	cd web && npx playwright test
+
+load: ## k6 load test of the transfer path through nginx (make up first; PEAK_RPS=150 by default)
+	docker run --rm --network kuntur_default -v $(CURDIR)/load:/load -e PEAK_RPS=$${PEAK_RPS:-150} grafana/k6:1.3.0 run /load/transfers.js
+
 web-dev: ## Front end with hot reload (expects backend on :8080)
 	cd web && npm run dev
 
@@ -28,4 +34,4 @@ scan: ## Local security scans (Trivy IaC + filesystem, gitleaks)
 	docker run --rm -v $(CURDIR):/w aquasec/trivy:latest fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --skip-dirs /w/web/node_modules /w
 	docker run --rm -v $(CURDIR):/repo zricethezav/gitleaks:v8.30.1 git /repo
 
-.PHONY: help up observability down test web-dev tf-validate scan
+.PHONY: help up observability down test e2e load web-dev tf-validate scan

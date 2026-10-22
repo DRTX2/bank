@@ -28,3 +28,19 @@ export function downloadText(filename: string, content: string, type = 'applicat
   a.click();
   URL.revokeObjectURL(url);
 }
+
+const systemRoles: Record<string, string> = {
+  CUSTOMER: 'Cliente',
+  CORPORATE_CUSTOMER: 'Cliente empresarial',
+  TELLER: 'Cajero',
+  BRANCH_MANAGER: 'Gerente de agencia',
+  COMPLIANCE_OFFICER: 'Oficial de cumplimiento',
+  AUDITOR: 'Auditor',
+  TENANT_ADMIN: 'Administrador',
+  PLATFORM_ADMIN: 'Operador de plataforma',
+};
+
+/** System roles get their Spanish name; custom roles (ANALISTA_JUNIOR) read as "analista junior". */
+export function roleLabel(code: string): string {
+  return systemRoles[code] ?? code.toLowerCase().replaceAll('_', ' ');
+}

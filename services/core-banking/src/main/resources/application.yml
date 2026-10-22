@@ -3,7 +3,10 @@ spring:
     name: core-banking
   threads:
     virtual:
-      enabled: true
+      # Off on purpose: on Java 21, blocking inside synchronized code (JDBC, gRPC, Kafka clients) pins virtual
+      # threads to their carriers. k6 at 140 transfers/s: p95 4.8 s with virtual threads, 27 ms without.
+      # Re-enable on Java 24+ (JEP 491 removes synchronized pinning) and re-run `make load` to confirm.
+      enabled: false
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/kuntur}
     username: ${DB_USER:kuntur}
@@ -35,6 +38,9 @@ spring:
 
 server:
   shutdown: graceful
+  # Behind nginx/ALB the socket peer is the proxy: trust X-Forwarded-For from private-range proxies so the
+  # login rate limit and the audit trail see the real client IP instead of one shared proxy address.
+  forward-headers-strategy: native
   error:
     include-stacktrace: never
 
@@ -52,6 +58,11 @@ management:
       enabled: ${TRACING_EXPORT:false}
     sampling:
       probability: ${TRACING_SAMPLING:0.1}
+  otlp:
+    metrics:
+      export:
+        # Metrics are scraped by Prometheus; OTLP push only when a collector exists (otherwise it logs a WARN a minute)
+        enabled: ${OTLP_METRICS_EXPORT:false}
   opentelemetry:
     tracing:
       export:
@@ -80,7 +91,7 @@ bank:
       public-key: ${JWT_PUBLIC_KEY:}
     cors-origins: ${CORS_ORIGINS:http://localhost:5173,http://localhost:8088}
     login:
-      max-attempts-per-minute: 10
+      max-attempts-per-minute: ${LOGIN_RATE_LIMIT:10}
       lockout-threshold: 5
       lockout-duration: 15m
   risk:

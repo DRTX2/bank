@@ -3,7 +3,10 @@ spring:
     name: risk-engine
   threads:
     virtual:
-      enabled: true
+      # Off on purpose: on Java 21, blocking inside synchronized code (JDBC, gRPC, Kafka clients) pins virtual
+      # threads to their carriers. k6 at 140 transfers/s: p95 4.8 s with virtual threads, 27 ms without.
+      # Re-enable on Java 24+ (JEP 491 removes synchronized pinning) and re-run `make load` to confirm.
+      enabled: false
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5433/risk}
     username: ${DB_USER:kuntur}
@@ -15,6 +18,10 @@ spring:
       auto-offset-reset: earliest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      # Only used to park poison events on the dead-letter topic
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
 
 server:
   port: ${HTTP_PORT:8081}

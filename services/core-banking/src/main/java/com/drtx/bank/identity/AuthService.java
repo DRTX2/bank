@@ -32,10 +32,11 @@ public class AuthService {
     private final AuditService audit;
     private final TenantScope scope;
     private final SecurityProperties.Login loginProps;
+    private final MfaService mfa;
 
     AuthService(TenantRepository tenants, UserRepository users, RefreshTokenRepository refreshTokens,
                 TokenService tokens, PasswordEncoder encoder, LoginRateLimiter rateLimiter, AuditService audit,
-                TenantScope scope, SecurityProperties props) {
+                TenantScope scope, SecurityProperties props, MfaService mfa) {
         this.tenants = tenants;
         this.users = users;
         this.refreshTokens = refreshTokens;
@@ -45,6 +46,7 @@ public class AuthService {
         this.audit = audit;
         this.scope = scope;
         this.loginProps = props.login();
+        this.mfa = mfa;
         this.dummyHash = encoder.encode(TokenService.newOpaqueToken());
     }
 
@@ -52,10 +54,10 @@ public class AuthService {
     }
 
     public record Profile(UUID id, String email, String fullName, UUID tenantId, String tenantCode, String tenantName,
-                          Set<String> roles, Set<String> permissions) {
+                          Set<String> roles, Set<String> permissions, boolean mfaEnabled) {
         static Profile of(User u, Tenant t) {
             return new Profile(u.getId(), u.getEmail(), u.getFullName(), t.getId(), t.getCode(), t.getName(),
-                    u.roleNames(), u.permissions());
+                    u.roleNames(), u.permissions(), u.mfaEnabled());
         }
     }
 
@@ -68,7 +70,8 @@ public class AuthService {
     private record Failed(ErrorCode code, String message) implements Outcome {
     }
 
-    public Session login(String tenantCode, String email, String password, String clientIp) {
+    /** {@code otp} is only needed when the user has MFA on; without it the caller gets MFA_REQUIRED and asks. */
+    public Session login(String tenantCode, String email, String password, String otp, String clientIp) {
         rateLimiter.check(clientIp);
         Tenant tenant = tenants.findByCode(tenantCode.trim().toUpperCase())
                 .orElseThrow(() -> new DomainException(ErrorCode.INVALID_CREDENTIALS, "Invalid credentials"));
@@ -76,14 +79,14 @@ public class AuthService {
             throw new DomainException(ErrorCode.TENANT_SUSPENDED, "Institution suspended");
         }
         // Failures are returned (not thrown) so the failed-attempt counter commits.
-        Outcome outcome = scope.inTenant(tenant.getId(), () -> attempt(tenant, email, password, clientIp));
+        Outcome outcome = scope.inTenant(tenant.getId(), () -> attempt(tenant, email, password, otp, clientIp));
         return switch (outcome) {
             case Ok ok -> ok.session();
             case Failed f -> throw new DomainException(f.code(), f.message());
         };
     }
 
-    private Outcome attempt(Tenant tenant, String email, String password, String clientIp) {
+    private Outcome attempt(Tenant tenant, String email, String password, String otp, String clientIp) {
         Instant now = Instant.now();
         Optional<User> found = users.findByEmailIgnoreCase(email.trim());
         if (found.isEmpty()) {
@@ -99,6 +102,15 @@ public class AuthService {
             user.registerFailedLogin(loginProps.lockoutThreshold(), loginProps.lockoutDuration(), now);
             audit.record(tenant.getId(), actor(user), "LOGIN_FAILED", "user", user.getId(), clientIp);
             return new Failed(ErrorCode.INVALID_CREDENTIALS, "Invalid credentials");
+        }
+        if (user.mfaEnabled()) {
+            if (otp == null || otp.isBlank()) {
+                return new Failed(ErrorCode.MFA_REQUIRED, "Enter the code from your authenticator app");
+            }
+            if (!mfa.acceptLoginCode(user, otp.trim(), now)) {
+                audit.record(tenant.getId(), actor(user), "LOGIN_FAILED", "user", user.getId(), "wrong MFA code");
+                return new Failed(ErrorCode.MFA_INVALID, "Invalid or already used verification code");
+            }
         }
         user.registerSuccessfulLogin();
         audit.record(tenant.getId(), actor(user), "LOGIN_SUCCEEDED", "user", user.getId(), clientIp);

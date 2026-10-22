@@ -1,16 +1,18 @@
 package com.drtx.bank.ledger;
 
 import java.time.Instant;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import com.drtx.bank.accounts.Account;
-import com.drtx.bank.accounts.AccountRepository;
 import com.drtx.bank.shared.error.DomainException;
 import com.drtx.bank.shared.error.ErrorCode;
+
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -27,14 +29,14 @@ public class LedgerService {
     public record Leg(UUID accountId, long amountMinor) {
     }
 
-    private final AccountRepository accounts;
     private final JournalRepository journals;
     private final PostingRepository postings;
+    private final EntityManager em;
 
-    LedgerService(AccountRepository accounts, JournalRepository journals, PostingRepository postings) {
-        this.accounts = accounts;
+    LedgerService(JournalRepository journals, PostingRepository postings, EntityManager em) {
         this.journals = journals;
         this.postings = postings;
+        this.em = em;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -44,11 +46,19 @@ public class LedgerService {
                 || legs.stream().anyMatch(l -> l.amountMinor() == 0)) {
             throw new IllegalArgumentException("Unbalanced journal entry " + legs);
         }
-        Map<UUID, Account> locked = accounts.lockAllOrdered(legs.stream().map(Leg::accountId).toList()).stream()
-                .collect(Collectors.toMap(Account::getId, Function.identity()));
-        if (locked.size() != legs.stream().map(Leg::accountId).distinct().count()) {
-            throw DomainException.notFound("Account");
-        }
+        // Lock by refresh, not by query: a caller may already hold these accounts (e.g. the teller flow read the
+        // account and the vault), and a locking query on a cached, stale instance fails its version check, which
+        // turned two simultaneous deposits into a 409. refresh(PESSIMISTIC_WRITE) re-reads the row FOR UPDATE.
+        // Ordered by the textual UUID, which matches PostgreSQL's uuid order used by lockAllOrdered: no deadlocks.
+        Map<UUID, Account> locked = new HashMap<>();
+        legs.stream().map(Leg::accountId).distinct().sorted(Comparator.comparing(UUID::toString)).forEach(id -> {
+            Account account = em.find(Account.class, id);
+            if (account == null) {
+                throw DomainException.notFound("Account");
+            }
+            em.refresh(account, LockModeType.PESSIMISTIC_WRITE);
+            locked.put(id, account);
+        });
         JournalEntry journal = journals.save(new JournalEntry(tenantId, type, reference, description));
         Instant now = journal.getCreatedAt();
         // Debits first: a failing debit aborts before any credit is applied in memory.

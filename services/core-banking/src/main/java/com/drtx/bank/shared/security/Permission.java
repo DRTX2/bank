@@ -7,33 +7,33 @@ import java.util.Optional;
  * Single source of truth for authorization. Codes follow {@code resource:action[:scope]}; "own" vs "any"
  * expresses data ownership (customers see their own accounts, staff see the whole tenant).
  * The catalogue is synced to the {@code permissions} table at startup and guarded by an architecture test
- * that checks every {@code @PreAuthorize} references an existing code.
+ * that checks every {@code @PreAuthorize} references an existing code. Descriptions are product copy (Spanish, like the UI).
  */
 public enum Permission {
-    ACCOUNTS_READ_OWN("accounts:read:own", "View own accounts and movements"),
-    ACCOUNTS_READ_ANY("accounts:read:any", "View any account in the institution"),
-    ACCOUNTS_OPEN("accounts:open", "Open accounts for customers"),
-    ACCOUNTS_FREEZE("accounts:freeze", "Freeze and unfreeze accounts"),
-    CUSTOMERS_ONBOARD("customers:onboard", "Register new customers (KYC onboarding)"),
-    CASH_DEPOSIT("cash:deposit", "Register cash deposits at the teller"),
-    CASH_WITHDRAW("cash:withdraw", "Register cash withdrawals at the teller"),
-    TRANSFERS_CREATE_OWN("transfers:create:own", "Send transfers from own accounts"),
-    TRANSFERS_CREATE_ANY("transfers:create:any", "Send transfers on behalf of customers"),
-    TRANSFERS_READ_OWN("transfers:read:own", "View own transfers"),
-    TRANSFERS_READ_ANY("transfers:read:any", "View any transfer"),
-    TRANSFERS_APPROVE("transfers:approve", "Approve high-value transfers (four-eyes)"),
-    PAYMENTS_BATCH("payments:batch", "Upload ISO 20022 pain.001 bulk payments"),
-    STATEMENTS_READ_OWN("statements:read:own", "Download own ISO 20022 statements"),
-    STATEMENTS_READ_ANY("statements:read:any", "Download any ISO 20022 statement"),
-    RISK_REVIEW("risk:review", "Release or block transfers held by the risk engine"),
-    USERS_READ("users:read", "View staff and customer users"),
-    USERS_MANAGE("users:manage", "Create users, assign roles, lock accounts"),
-    ROLES_MANAGE("roles:manage", "Create and edit custom roles"),
-    AUDIT_READ("audit:read", "Read and verify the tamper-evident audit trail"),
-    OPS_MONITOR("ops:monitor", "Live operations dashboard"),
-    OPS_SIMULATE("ops:simulate", "Run the synthetic traffic simulator"),
-    SIMULATIONS_USE("simulations:use", "Use financial simulators"),
-    TENANTS_MANAGE("tenants:manage", "Provision and suspend institutions", Scope.PLATFORM);
+    ACCOUNTS_READ_OWN("accounts:read:own", "Ver sus cuentas y movimientos"),
+    ACCOUNTS_READ_ANY("accounts:read:any", "Ver cualquier cuenta de la institución"),
+    ACCOUNTS_OPEN("accounts:open", "Abrir cuentas a clientes"),
+    ACCOUNTS_FREEZE("accounts:freeze", "Congelar y descongelar cuentas"),
+    CUSTOMERS_ONBOARD("customers:onboard", "Registrar clientes nuevos (KYC)"),
+    CASH_DEPOSIT("cash:deposit", "Registrar depósitos en ventanilla"),
+    CASH_WITHDRAW("cash:withdraw", "Registrar retiros en ventanilla"),
+    TRANSFERS_CREATE_OWN("transfers:create:own", "Transferir desde sus cuentas"),
+    TRANSFERS_CREATE_ANY("transfers:create:any", "Transferir a nombre de clientes"),
+    TRANSFERS_READ_OWN("transfers:read:own", "Ver sus transferencias"),
+    TRANSFERS_READ_ANY("transfers:read:any", "Ver cualquier transferencia"),
+    TRANSFERS_APPROVE("transfers:approve", "Aprobar transferencias grandes (cuatro ojos)"),
+    PAYMENTS_BATCH("payments:batch", "Cargar pagos masivos ISO 20022 pain.001"),
+    STATEMENTS_READ_OWN("statements:read:own", "Descargar sus estados de cuenta ISO 20022"),
+    STATEMENTS_READ_ANY("statements:read:any", "Descargar cualquier estado de cuenta ISO 20022"),
+    RISK_REVIEW("risk:review", "Liberar o bloquear transferencias retenidas por riesgo"),
+    USERS_READ("users:read", "Ver usuarios del personal y clientes"),
+    USERS_MANAGE("users:manage", "Crear usuarios, asignar roles, bloquear accesos"),
+    ROLES_MANAGE("roles:manage", "Crear y editar roles propios"),
+    AUDIT_READ("audit:read", "Leer y verificar la bitácora de auditoría"),
+    OPS_MONITOR("ops:monitor", "Ver el tablero de operaciones en vivo"),
+    OPS_SIMULATE("ops:simulate", "Ejecutar el simulador de tráfico"),
+    SIMULATIONS_USE("simulations:use", "Usar los simuladores financieros"),
+    TENANTS_MANAGE("tenants:manage", "Dar de alta y suspender instituciones", Scope.PLATFORM);
 
     public enum Scope { TENANT, PLATFORM }
 

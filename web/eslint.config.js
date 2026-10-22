@@ -7,7 +7,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage'] },
+  { ignores: ['dist', 'coverage', 'playwright-report', 'test-results'] },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -48,7 +48,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/test/**', '**/*.test.{ts,tsx}'],
+    files: ['src/test/**', '**/*.test.{ts,tsx}', 'e2e/**'],
     rules: { '@typescript-eslint/no-non-null-assertion': 'off' },
   },
 );

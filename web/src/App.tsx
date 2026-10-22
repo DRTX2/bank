@@ -5,6 +5,7 @@ import { Shell } from './components/Shell';
 import { Empty } from './components/ui';
 import { useAuth } from './lib/auth';
 import { Login } from './pages/Login';
+import { Security } from './pages/Security';
 import { TransfersPage } from './pages/TransfersPage';
 import { Audit } from './pages/backoffice/Audit';
 import { Customers } from './pages/backoffice/Customers';
@@ -161,6 +162,7 @@ const router = createBrowserRouter([
           </Guard>
         ),
       },
+      { path: 'seguridad', element: <Security /> },
       { path: '*', element: <Empty>Esta página no existe.</Empty> },
     ],
   },

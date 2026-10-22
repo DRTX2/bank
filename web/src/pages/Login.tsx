@@ -2,8 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { useState, type SyntheticEvent } from 'react';
 import { Navigate } from 'react-router';
 
+import { DemoCode } from '../components/DemoCode';
 import { Button, ErrorNote, Field, Select } from '../components/ui';
-import { api } from '../lib/api';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../lib/auth';
 
 const DEMO_PASSWORD = 'Kuntur2026!';
@@ -17,7 +18,12 @@ const demoUsers = [
   },
   { tenant: 'ANDN', email: 'luis@andina.ec', role: 'Cliente', note: 'Banca personal y simuladores' },
   { tenant: 'ANDN', email: 'cajero@andina.ec', role: 'Cajero', note: 'Depósitos, retiros, alta de clientes' },
-  { tenant: 'ANDN', email: 'gerente@andina.ec', role: 'Gerente', note: 'Aprueba transferencias grandes' },
+  {
+    tenant: 'ANDN',
+    email: 'gerente@andina.ec',
+    role: 'Gerente',
+    note: 'Aprueba transferencias grandes, con verificación en dos pasos',
+  },
   {
     tenant: 'ANDN',
     email: 'cumplimiento@andina.ec',
@@ -48,6 +54,8 @@ export function Login() {
   const [tenant, setTenant] = useState('ANDN');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [otp, setOtp] = useState('');
+  const [needsOtp, setNeedsOtp] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
 
@@ -58,8 +66,12 @@ export function Login() {
     setBusy(true);
     setError(null);
     try {
-      await login(tenant, email, password);
+      await login(tenant, email, password, needsOtp ? otp : undefined);
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'MFA_REQUIRED') {
+        setNeedsOtp(true);
+        return;
+      }
       setError(err);
     } finally {
       setBusy(false);
@@ -68,7 +80,7 @@ export function Login() {
 
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
-      <div className="relative flex flex-col bg-lapis text-on-lapis">
+      <div className="relative flex flex-col bg-brand text-on-brand">
         <div className="textile h-4" aria-hidden />
         <div className="flex flex-1 flex-col justify-between gap-10 px-8 py-10 sm:px-14 lg:py-16">
           <p className="text-2xl font-semibold tracking-tight">Kuntur</p>
@@ -76,22 +88,22 @@ export function Login() {
             <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl">
               Banca central para cooperativas que vuelan alto.
             </h1>
-            <p className="mt-5 text-lg text-on-lapis/80">
+            <p className="mt-5 text-lg text-on-brand/80">
               Libro mayor de partida doble, pagos ISO 20022 y un motor de riesgo que explica cada decisión.
               Cada institución, aislada en su propio espacio.
             </p>
           </div>
           <dl className="grid max-w-md grid-cols-3 gap-6 text-sm">
             <div>
-              <dt className="text-on-lapis/70">Liquidación</dt>
+              <dt className="text-on-brand/70">Liquidación</dt>
               <dd className="mt-1 font-medium">En línea, 24/7</dd>
             </div>
             <div>
-              <dt className="text-on-lapis/70">Mensajería</dt>
+              <dt className="text-on-brand/70">Mensajería</dt>
               <dd className="mt-1 font-medium">ISO 20022</dd>
             </div>
             <div>
-              <dt className="text-on-lapis/70">Control</dt>
+              <dt className="text-on-brand/70">Control</dt>
               <dd className="mt-1 font-medium">Cuatro ojos</dd>
             </div>
           </dl>
@@ -123,6 +135,7 @@ export function Login() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
+                setNeedsOtp(false);
               }}
             />
             <Field
@@ -135,9 +148,27 @@ export function Login() {
                 setPassword(e.target.value);
               }}
             />
+            {needsOtp && (
+              <>
+                <Field
+                  label="Código de verificación"
+                  hint="Las 6 cifras que muestra tu app de autenticación."
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  required
+                  value={otp}
+                  onChange={(e) => {
+                    setOtp(e.target.value.replace(/\D/g, ''));
+                  }}
+                />
+                <DemoCode email={email} />
+              </>
+            )}
             <ErrorNote error={error} />
             <Button type="submit" disabled={busy} className="mt-2 py-2.5">
-              {busy ? 'Ingresando…' : 'Ingresar'}
+              {busy ? 'Ingresando…' : needsOtp ? 'Verificar e ingresar' : 'Ingresar'}
             </Button>
           </form>
 
@@ -157,6 +188,8 @@ export function Login() {
                       setTenant(u.tenant);
                       setEmail(u.email);
                       setPassword(DEMO_PASSWORD);
+                      setNeedsOtp(false);
+                      setOtp('');
                     }}
                   >
                     <span>

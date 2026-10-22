@@ -2,7 +2,9 @@ package com.drtx.bank.risk;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -25,6 +27,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.testcontainers.kafka.KafkaContainer;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -56,6 +59,8 @@ class RiskEngineIntegrationTest {
     GrpcServer server;
     @Autowired
     KafkaTemplate<String, String> kafka;
+    @Autowired
+    ConsumerFactory<String, String> consumers;
     @Autowired
     JdbcTemplate jdbc;
     @Autowired
@@ -123,6 +128,26 @@ class RiskEngineIntegrationTest {
         Thread.sleep(500);
         assertThat(jdbc.queryForObject("select count(*) from transfer_facts where source_account_id = ?", Integer.class,
                 source)).isEqualTo(1);
+    }
+
+    @Test
+    void poisonEventIsParkedOnTheDeadLetterTopic() throws Exception {
+        String poison = "{\"type\":\"TransferCompleted\",\"transferId\":\"not-a-uuid-" + UUID.randomUUID() + "\"}";
+        kafka.send("bank.payments.events.v1", "k", poison).get();
+
+        try (var consumer = consumers.createConsumer("dlt-test-" + UUID.randomUUID(), null)) {
+            consumer.subscribe(List.of("bank.payments.events.v1.dlt"));
+            long deadline = System.currentTimeMillis() + 30_000;
+            while (System.currentTimeMillis() < deadline) {
+                for (var record : consumer.poll(Duration.ofMillis(500))) {
+                    if (poison.equals(record.value())) {
+                        assertThat(record.headers().lastHeader("kafka_dlt-exception-message")).isNotNull();
+                        return;
+                    }
+                }
+            }
+        }
+        throw new AssertionError("Poison event never reached the dead-letter topic");
     }
 
     private ScoreTransferRequest request(UUID source, UUID destination, long amount) {

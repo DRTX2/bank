@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { DemoCode } from '../../components/DemoCode';
 import { RiskMeter } from '../../components/RiskMeter';
 import { Button, Empty, ErrorNote, Money, PageHeader } from '../../components/ui';
 import { api } from '../../lib/api';
@@ -22,6 +23,8 @@ export function ReviewQueue({ mode }: { mode: 'approval' | 'risk' }) {
     refetchInterval: 5000,
   });
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // Step-up: approving moves money, so it needs a fresh second-factor code, not just a valid session.
+  const [otp, setOtp] = useState('');
 
   const decide = useMutation({
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) => {
@@ -34,10 +37,11 @@ export function ReviewQueue({ mode }: { mode: 'approval' | 'risk' }) {
       }
       return api<Transfer>(`/api/v1/transfers/${id}/${approve ? 'approve' : 'reject'}`, {
         method: 'POST',
-        body: { note },
+        body: approve ? { note, otp } : { note },
       });
     },
     onSuccess: () => {
+      setOtp('');
       void queryClient.invalidateQueries({ queryKey: ['transfers'] });
     },
   });
@@ -62,6 +66,25 @@ export function ReviewQueue({ mode }: { mode: 'approval' | 'risk' }) {
   return (
     <>
       <PageHeader title={copy.title} lead={copy.lead} />
+      {mode === 'approval' && (
+        <div className="mb-6 flex max-w-md flex-col gap-1.5">
+          <label htmlFor="step-up" className="text-sm font-medium">
+            Código de verificación para aprobar
+          </label>
+          <input
+            id="step-up"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            maxLength={6}
+            className="num rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-lapis"
+            value={otp}
+            onChange={(e) => {
+              setOtp(e.target.value.replace(/\D/g, ''));
+            }}
+          />
+          <DemoCode email={session?.user.email ?? ''} />
+        </div>
+      )}
       <ErrorNote error={queue.error ?? decide.error} />
       {queue.data?.length === 0 && <Empty>{copy.empty}</Empty>}
       <ul className="flex flex-col gap-4">
@@ -100,7 +123,12 @@ export function ReviewQueue({ mode }: { mode: 'approval' | 'risk' }) {
                   </label>
                   <div className="flex gap-2">
                     <Button
-                      disabled={own || decide.isPending || (mode === 'risk' && !notes[t.id])}
+                      disabled={
+                        own ||
+                        decide.isPending ||
+                        (mode === 'risk' && !notes[t.id]) ||
+                        (mode === 'approval' && otp.length !== 6)
+                      }
                       onClick={() => {
                         decide.mutate({ id: t.id, approve: true });
                       }}

@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAt
 import { useId } from 'react';
 
 import { ApiError } from '../lib/api';
+import { errorText } from '../lib/errors';
 import { money } from '../lib/format';
 
 type Variant = 'primary' | 'quiet' | 'danger';
@@ -125,13 +126,12 @@ export function Money({
 
 export function ErrorNote({ error }: { error: unknown }) {
   if (!error) return null;
-  const message =
-    error instanceof ApiError
-      ? `${error.message}${error.isoReason ? ` (ISO ${error.isoReason})` : ''}`
-      : 'No se pudo completar la operación. Revisa tu conexión e inténtalo de nuevo.';
+  const message = errorText(error);
+  const iso = error instanceof ApiError && error.isoReason ? ` (ISO ${error.isoReason})` : '';
   return (
     <p role="alert" className="rounded-md border border-risk/40 bg-risk-soft px-3 py-2 text-sm text-risk">
       {message}
+      {iso}
     </p>
   );
 }
@@ -142,14 +142,31 @@ export function Empty({ children }: { children: ReactNode }) {
   );
 }
 
+// Money and quantity columns are right-aligned in every table so their headers must follow.
+const NUMERIC_HEADS = new Set([
+  'Monto',
+  'Saldo',
+  'Cuota',
+  'Capital',
+  'Interés',
+  'Seguro',
+  'Suma de control',
+  'Umbral cuatro ojos',
+]);
+
 export function Table({ head, children }: { head: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+    // relative: keeps absolutely positioned sr-only text inside the scroll box instead of widening the page
+    <div className="relative overflow-x-auto rounded-lg border border-line bg-surface">
       <table className="w-full min-w-[640px] text-left text-sm">
         <thead className="border-b border-line bg-surface-2 text-ink-2">
           <tr>
             {head.map((h) => (
-              <th key={h} scope="col" className="px-4 py-2.5 font-medium">
+              <th
+                key={h}
+                scope="col"
+                className={`px-4 py-2.5 font-medium ${NUMERIC_HEADS.has(h) ? 'text-right' : ''}`}
+              >
                 {h}
               </th>
             ))}

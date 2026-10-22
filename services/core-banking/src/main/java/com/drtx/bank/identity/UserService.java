@@ -44,6 +44,14 @@ public class UserService {
                 resolveRoles(roleNames)));
     }
 
+    /** Demo seeding only: MFA already active with a known secret. */
+    @Transactional
+    public void enableDemoMfa(User user, String secret) {
+        user.startMfaEnrollment(secret);
+        user.enableMfa(java.time.Instant.now());
+        users.save(user);
+    }
+
     @Transactional
     public User create(CurrentUser actor, String email, String fullName, String nationalId, String rawPassword,
                        Collection<String> roleNames) {

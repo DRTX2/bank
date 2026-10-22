@@ -16,6 +16,7 @@ const session = (access: string, refresh: string): Session => ({
     tenantName: 'Andina',
     roles: [],
     permissions: [],
+    mfaEnabled: false,
   },
 });
 

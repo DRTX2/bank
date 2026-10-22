@@ -5,7 +5,7 @@ import { Can } from '../../components/Can';
 import { Button, ErrorNote, Field, PageHeader, Section, Table } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { formatDate } from '../../lib/format';
+import { formatDate, roleLabel } from '../../lib/format';
 import type { Role, UserView } from '../../lib/types';
 
 export function Users() {
@@ -60,7 +60,7 @@ export function Users() {
                       );
                     }}
                   />
-                  {r.name.toLowerCase().replaceAll('_', ' ')}
+                  {roleLabel(r.name)}
                 </label>
               ))}
             </div>
@@ -92,7 +92,7 @@ export function Users() {
               <tr key={u.id}>
                 <td className="px-4 py-3 font-medium">{u.fullName}</td>
                 <td className="px-4 py-3 text-ink-2">{u.email}</td>
-                <td className="px-4 py-3 text-xs">{u.roles.join(', ').toLowerCase().replaceAll('_', ' ')}</td>
+                <td className="px-4 py-3 text-xs">{u.roles.map(roleLabel).join(', ')}</td>
                 <td className={`px-4 py-3 ${u.locked ? 'text-risk' : ''}`}>
                   {u.locked ? 'Bloqueado' : 'Activo'}
                 </td>
@@ -178,7 +178,7 @@ function CreateUser({ roles, onDone }: { roles: Role[]; onDone: () => void }) {
           >
             {roles.map((r) => (
               <option key={r.id} value={r.name}>
-                {r.name.toLowerCase().replaceAll('_', ' ')}
+                {roleLabel(r.name)}
               </option>
             ))}
           </select>

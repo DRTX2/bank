@@ -4,6 +4,7 @@ import { useState, type SyntheticEvent } from 'react';
 
 import { Button, ErrorNote, Field, PageHeader, Section } from '../../components/ui';
 import { api } from '../../lib/api';
+import { roleLabel } from '../../lib/format';
 import type { PermissionInfo, Role } from '../../lib/types';
 
 /**
@@ -53,7 +54,7 @@ export function Roles() {
       />
       <ErrorNote error={roles.error ?? update.error ?? remove.error} />
       <Section title="Matriz">
-        <div className="overflow-x-auto rounded-lg border border-line bg-surface">
+        <div className="relative overflow-x-auto rounded-lg border border-line bg-surface">
           <table className="text-sm">
             <thead>
               <tr className="border-b border-line">
@@ -66,7 +67,7 @@ export function Roles() {
                     scope="col"
                     className="min-w-24 px-2 py-3 text-center align-bottom text-xs font-medium"
                   >
-                    <span className="block">{r.name.toLowerCase().replaceAll('_', ' ')}</span>
+                    <span className="block">{roleLabel(r.name)}</span>
                     {r.system ? (
                       <span className="font-normal text-ink-2">sistema</span>
                     ) : (

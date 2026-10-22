@@ -4,7 +4,8 @@ import type { Session } from './types';
 
 export interface AuthState {
   session: Session | null;
-  login: (tenantCode: string, email: string, password: string) => Promise<void>;
+  /** Rejects with ApiError MFA_REQUIRED when the user has a second factor and no `otp` was given. */
+  login: (tenantCode: string, email: string, password: string, otp?: string) => Promise<void>;
   logout: () => Promise<void>;
   can: (...permissions: string[]) => boolean;
 }

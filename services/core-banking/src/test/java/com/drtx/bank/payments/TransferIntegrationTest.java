@@ -89,7 +89,7 @@ class TransferIntegrationTest extends IntegrationTest {
     void highValueTransferNeedsFourEyesApproval() throws Exception {
         Customer ana = newAndinaCustomer("20000.00");
         Customer bob = newAndinaCustomer("0");
-        String manager = andina("gerente");
+        Officer manager = newMfaManager();
 
         // Andina's approval threshold is 5,000.00
         String body = transfer(ana.token(), ana.accountId(), bob.accountNumber(), "7500.00", key())
@@ -102,8 +102,15 @@ class TransferIntegrationTest extends IntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"self\"}"))
                 .andExpect(status().isForbidden());
 
-        mvc.perform(post("/api/v1/transfers/" + id + "/approve").header("Authorization", "Bearer " + manager)
+        // Approving is a step-up operation: no code, no approval
+        mvc.perform(post("/api/v1/transfers/" + id + "/approve").header("Authorization", "Bearer " + manager.token())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"KYC ok\"}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("STEP_UP_FAILED"));
+
+        mvc.perform(post("/api/v1/transfers/" + id + "/approve").header("Authorization", "Bearer " + manager.token())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("note", "KYC ok", "otp", otp(manager.mfaSecret(), 1)))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("COMPLETED"));
         assertThat(balance(bob.token(), bob.accountId())).isEqualByComparingTo("7500.00");
@@ -113,7 +120,8 @@ class TransferIntegrationTest extends IntegrationTest {
     void initiatorCannotApproveOwnTransfer() throws Exception {
         Customer ana = newAndinaCustomer("0");
         Customer bob = newAndinaCustomer("0");
-        String manager = andina("gerente");
+        Officer officer = newMfaManager();
+        String manager = officer.token();
         mvc.perform(post("/api/v1/accounts/" + ana.accountId() + "/deposits").header("Authorization", "Bearer " + manager)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"amount\": 9000}")).andExpect(status().isOk());
 
@@ -122,7 +130,8 @@ class TransferIntegrationTest extends IntegrationTest {
                 .andReturn().getResponse().getContentAsString();
         mvc.perform(post("/api/v1/transfers/" + JsonPath.read(body, "$.id") + "/approve")
                         .header("Authorization", "Bearer " + manager)
-                        .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"me\"}"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json(Map.of("note", "me", "otp", otp(officer.mfaSecret(), 1)))))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value("SEGREGATION_OF_DUTIES"));
     }

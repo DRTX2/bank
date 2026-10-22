@@ -14,6 +14,11 @@ public enum ErrorCode {
     INVALID_STATE(HttpStatus.CONFLICT),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED),
+    MFA_REQUIRED(HttpStatus.UNAUTHORIZED),
+    MFA_INVALID(HttpStatus.UNAUTHORIZED),
+    MFA_NOT_ENROLLED(HttpStatus.FORBIDDEN),
+    // 403, not 401: a wrong step-up code must not look like an expired session to the client
+    STEP_UP_FAILED(HttpStatus.FORBIDDEN),
     USER_LOCKED(HttpStatus.LOCKED),
     TENANT_SUSPENDED(HttpStatus.FORBIDDEN),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),

@@ -34,6 +34,8 @@ import org.springframework.stereotype.Component;
 class DemoDataSeeder implements ApplicationRunner {
 
     static final String PASSWORD = "Kuntur2026!";
+    /** Published on purpose, like the password: lets reviewers try MFA and step-up approvals without a phone. */
+    static final String DEMO_MFA_SECRET = "KUNTURDEMOGERENTEMFAANDINAKUNTUR";
     private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);
 
     private final TenantRepository tenants;
@@ -59,11 +61,11 @@ class DemoDataSeeder implements ApplicationRunner {
             return;
         }
         log.info("Seeding demo data");
-        Tenant platform = new Tenant("KNTR", "Kuntur Platform", "EC", "USD", "KNTRECE1XXX", 1_000_000_00);
+        Tenant platform = new Tenant("KNTR", "Kuntur Plataforma", "EC", "USD", "KNTRECE1XXX", 1_000_000_00);
         scope.inTenant(platform.getId(), () -> {
             tenants.save(platform);
             roles.provisionPlatformRoles(platform.getId());
-            return users.createUser(platform.getId(), "root@kuntur.dev", "Platform Operator", null, PASSWORD,
+            return users.createUser(platform.getId(), "root@kuntur.dev", "Operador de plataforma", null, PASSWORD,
                     List.of(SystemRole.PLATFORM_ADMIN.name()));
         });
         CurrentUser operator = CurrentUser.system(platform.getId(), EnumSet.allOf(Permission.class));
@@ -72,7 +74,7 @@ class DemoDataSeeder implements ApplicationRunner {
                 "Cooperativa Andina", "EC", "USD", "ANDNECE1XXX", 5_000_00, "admin@andina.ec", "Valeria Paredes", PASSWORD));
         seedInstitution(andina, "andina.ec", List.of(
                 new Staff("cajero", "Diego Quishpe", SystemRole.TELLER),
-                new Staff("gerente", "Martina Salazar", SystemRole.BRANCH_MANAGER),
+                new Staff("gerente", "Martina Salazar", SystemRole.BRANCH_MANAGER, DEMO_MFA_SECRET),
                 new Staff("cumplimiento", "Andrés Villacís", SystemRole.COMPLIANCE_OFFICER),
                 new Staff("auditor", "Lucía Cárdenas", SystemRole.AUDITOR)), List.of(
                 new Customer("ana", "Ana Morales", "1712345678", true, 25_000_00),
@@ -94,7 +96,10 @@ class DemoDataSeeder implements ApplicationRunner {
         log.info("Demo data ready. Password for every demo user: {}", PASSWORD);
     }
 
-    private record Staff(String user, String name, SystemRole role) {
+    private record Staff(String user, String name, SystemRole role, String mfaSecret) {
+        Staff(String user, String name, SystemRole role) {
+            this(user, name, role, null);
+        }
     }
 
     private record Customer(String user, String name, String nationalId, boolean corporate, long openingMinor) {
@@ -104,7 +109,11 @@ class DemoDataSeeder implements ApplicationRunner {
         CurrentUser seeder = CurrentUser.system(tenant.getId(), EnumSet.allOf(Permission.class));
         scope.inTenant(tenant.getId(), () -> {
             for (Staff s : staff) {
-                users.createUser(tenant.getId(), s.user() + "@" + domain, s.name(), null, PASSWORD, List.of(s.role().name()));
+                var user = users.createUser(tenant.getId(), s.user() + "@" + domain, s.name(), null, PASSWORD,
+                        List.of(s.role().name()));
+                if (s.mfaSecret() != null) {
+                    users.enableDemoMfa(user, s.mfaSecret());
+                }
             }
             for (Customer c : customers) {
                 Account savings = accounts.onboardCustomer(seeder, c.user() + "@" + domain, c.name(), c.nationalId(),

@@ -85,7 +85,7 @@ export function Operations() {
         <dl className="mb-10 grid grid-cols-2 gap-x-8 gap-y-6 border-y border-line py-6 md:grid-cols-4">
           <div>
             <dt className="text-sm text-ink-2">Volumen liquidado</dt>
-            <dd className="mt-1 text-3xl font-semibold">
+            <dd className="mt-1 text-2xl font-semibold sm:text-3xl">
               <Money amount={t.COMPLETED.amount} currency="USD" />
             </dd>
             <dd className="num text-sm text-ink-2">{t.COMPLETED.count} transferencias</dd>
@@ -106,7 +106,7 @@ export function Operations() {
           </div>
           <div>
             <dt className="text-sm text-ink-2">Depósitos de clientes</dt>
-            <dd className="mt-1 text-3xl font-semibold">
+            <dd className="mt-1 text-2xl font-semibold sm:text-3xl">
               <Money amount={dashboard.data.customerDeposits} currency="USD" />
             </dd>
             <dd className="num text-sm text-ink-2">{dashboard.data.customerAccounts} cuentas</dd>
@@ -138,7 +138,7 @@ export function Operations() {
                 <span className="col-span-2 sm:col-span-1">
                   <StatusPill
                     status={e.status}
-                    reason={e.riskScore ? `riesgo ${e.riskScore}` : e.failureCode}
+                    reason={e.failureCode ?? (e.riskScore ? `riesgo ${e.riskScore}` : null)}
                   />
                 </span>
               </li>

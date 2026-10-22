@@ -30,7 +30,7 @@ class AuthController {
     }
 
     record LoginRequest(@NotBlank @Size(max = 8) String tenantCode, @NotBlank @Size(max = 254) String email,
-                        @NotBlank @Size(max = 128) String password) {
+                        @NotBlank @Size(max = 128) String password, @Size(max = 10) String otp) {
     }
 
     record RefreshRequest(@NotBlank String refreshToken) {
@@ -41,7 +41,7 @@ class AuthController {
 
     @PostMapping("/api/v1/auth/login")
     AuthService.Session login(@Valid @RequestBody LoginRequest body, HttpServletRequest request) {
-        return auth.login(body.tenantCode(), body.email(), body.password(), request.getRemoteAddr());
+        return auth.login(body.tenantCode(), body.email(), body.password(), body.otp(), request.getRemoteAddr());
     }
 
     @PostMapping("/api/v1/auth/refresh")

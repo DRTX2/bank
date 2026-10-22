@@ -8,6 +8,7 @@ import {
   Gauge,
   History,
   KeyRound,
+  LockKeyhole,
   Landmark,
   LogOut,
   Menu,
@@ -22,7 +23,7 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 
 import { useAuth } from '../lib/auth';
-import { money } from '../lib/format';
+import { money, roleLabel } from '../lib/format';
 import { useStomp } from '../lib/realtime';
 import type { Notification } from '../lib/types';
 
@@ -72,6 +73,10 @@ const groups: { title: string; items: Item[] }[] = [
       { to: '/plataforma/instituciones', label: 'Instituciones', icon: Building2, perms: ['tenants:manage'] },
     ],
   },
+  {
+    title: 'Mi usuario',
+    items: [{ to: '/seguridad', label: 'Seguridad', icon: LockKeyhole, perms: [] }],
+  },
 ];
 
 export function Shell() {
@@ -94,11 +99,11 @@ export function Shell() {
   const nav = (
     <nav aria-label="Principal" className="flex flex-col gap-6">
       {groups.map((g) => {
-        const visible = g.items.filter((i) => can(...i.perms));
+        const visible = g.items.filter((i) => i.perms.length === 0 || can(...i.perms));
         if (visible.length === 0) return null;
         return (
           <div key={g.title}>
-            <p className="mb-1.5 px-3 text-xs font-medium text-on-lapis/60">{g.title}</p>
+            <p className="mb-1.5 px-3 text-xs font-medium text-on-brand/60">{g.title}</p>
             <ul className="flex flex-col gap-0.5">
               {visible.map((i) => (
                 <li key={i.to}>
@@ -111,8 +116,8 @@ export function Shell() {
                     className={({ isActive }) =>
                       `flex items-center gap-2.5 rounded-md px-3 py-2 text-sm ${
                         isActive
-                          ? 'bg-on-lapis/15 font-medium text-on-lapis'
-                          : 'text-on-lapis/80 hover:bg-on-lapis/10'
+                          ? 'bg-on-brand/15 font-medium text-on-brand'
+                          : 'text-on-brand/80 hover:bg-on-brand/10'
                       }`
                     }
                   >
@@ -131,25 +136,23 @@ export function Shell() {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[260px_1fr]">
       <aside
-        className={`fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col bg-lapis text-on-lapis transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-30 flex w-[260px] flex-col bg-brand text-on-brand transition-transform lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="textile h-3" aria-hidden />
         <div className="px-5 pb-6 pt-5">
           <p className="text-xl font-semibold tracking-tight">Kuntur</p>
-          <p className="text-sm text-on-lapis/70">{user.tenantName}</p>
+          <p className="text-sm text-on-brand/70">{user.tenantName}</p>
         </div>
         <div className="flex-1 overflow-y-auto px-2">{nav}</div>
-        <div className="border-t border-on-lapis/15 px-5 py-4 text-sm">
+        <div className="border-t border-on-brand/15 px-5 py-4 text-sm">
           <p className="font-medium">{user.fullName}</p>
-          <p className="truncate text-on-lapis/70">
-            {user.roles.join(', ').toLowerCase().replaceAll('_', ' ')}
-          </p>
+          <p className="truncate text-on-brand/70">{user.roles.map(roleLabel).join(', ')}</p>
           <button
             type="button"
             onClick={() => void logout()}
-            className="mt-3 inline-flex items-center gap-2 text-on-lapis/80 hover:text-on-lapis"
+            className="mt-3 inline-flex items-center gap-2 text-on-brand/80 hover:text-on-brand"
           >
             <LogOut className="size-4" aria-hidden /> Cerrar sesión
           </button>

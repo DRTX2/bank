@@ -4,9 +4,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.drtx.bank.identity.Totp;
 import com.jayway.jsonpath.JsonPath;
 
 import org.junit.jupiter.api.AfterEach;
@@ -84,6 +87,30 @@ public abstract class IntegrationTest {
                     .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("amount", deposit))));
         }
         return new Customer(login(tenant, email), ownerId, accountId, number, email);
+    }
+
+    /** A branch manager with MFA already active: approvals need a fresh step-up code from {@link #otp}. */
+    protected record Officer(String token, String mfaSecret, String email) {
+    }
+
+    protected Officer newMfaManager() throws Exception {
+        String email = "m" + UUID.randomUUID().toString().substring(0, 8) + "@andina.ec";
+        mvc.perform(post("/api/v1/users").header("Authorization", "Bearer " + andina("admin"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json(Map.of("email", email, "fullName", "Test Manager", "password", PASSWORD,
+                        "roles", List.of("BRANCH_MANAGER")))));
+        String token = login("ANDN", email);
+        String enrollment = mvc.perform(post("/api/v1/me/mfa/enrollment").header("Authorization", "Bearer " + token))
+                .andReturn().getResponse().getContentAsString();
+        String secret = JsonPath.read(enrollment, "$.secret");
+        mvc.perform(post("/api/v1/me/mfa/activation").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json(Map.of("code", otp(secret, 0)))));
+        return new Officer(token, secret, email);
+    }
+
+    /** Code for the current step plus {@code offset}; each accepted code burns its step, so use +1 for the next one. */
+    protected static String otp(String secret, int offset) {
+        return Totp.code(secret, Totp.currentStep(Instant.now()) + offset);
     }
 
     protected Customer newAndinaCustomer(String deposit) throws Exception {

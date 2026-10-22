@@ -43,6 +43,10 @@ public class User extends TenantOwned {
     private int failedLogins;
     private Instant lockedUntil;
     private Instant createdAt;
+    // shortcut: TOTP seed stored as-is (the volume is KMS-encrypted at rest), envelope-encrypt it with a KMS data key before production
+    private String mfaSecret;
+    private Instant mfaEnabledAt;
+    private long mfaLastStep;
     @Version
     private long version;
 
@@ -87,6 +91,36 @@ public class User extends TenantOwned {
     void registerSuccessfulLogin() {
         failedLogins = 0;
         lockedUntil = null;
+    }
+
+    public boolean mfaEnabled() {
+        return mfaEnabledAt != null;
+    }
+
+    void startMfaEnrollment(String secret) {
+        mfaSecret = secret;
+        mfaEnabledAt = null;
+        mfaLastStep = 0;
+    }
+
+    void enableMfa(Instant now) {
+        mfaEnabledAt = now;
+    }
+
+    void disableMfa() {
+        mfaSecret = null;
+        mfaEnabledAt = null;
+        mfaLastStep = 0;
+    }
+
+    /** Consumes a code: true only for a valid code newer than the last one used. */
+    boolean acceptOtp(String code, Instant now) {
+        if (mfaSecret == null) {
+            return false;
+        }
+        var step = Totp.verify(mfaSecret, code, now, mfaLastStep);
+        step.ifPresent(s -> mfaLastStep = s);
+        return step.isPresent();
     }
 
     void replaceRoles(Set<Role> newRoles) {

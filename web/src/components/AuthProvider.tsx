@@ -12,9 +12,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = useMemo<AuthState>(
     () => ({
       session,
-      async login(tenantCode, email, password) {
+      async login(tenantCode, email, password, otp) {
         setSession(
-          await api<Session>('/api/v1/auth/login', { method: 'POST', body: { tenantCode, email, password } }),
+          await api<Session>('/api/v1/auth/login', {
+            method: 'POST',
+            body: { tenantCode, email, password, otp },
+          }),
         );
       },
       async logout() {

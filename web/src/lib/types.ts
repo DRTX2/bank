@@ -7,6 +7,7 @@ export interface Profile {
   tenantName: string;
   roles: string[];
   permissions: string[];
+  mfaEnabled: boolean;
 }
 
 export interface Session {
