@@ -9,12 +9,14 @@ import { Security } from './pages/Security';
 import { TransfersPage } from './pages/TransfersPage';
 import { Audit } from './pages/backoffice/Audit';
 import { Customers } from './pages/backoffice/Customers';
+import { Loans } from './pages/backoffice/Loans';
 import { Operations } from './pages/backoffice/Operations';
 import { ReviewQueue } from './pages/backoffice/ReviewQueue';
 import { Roles } from './pages/backoffice/Roles';
 import { Tenants } from './pages/backoffice/Tenants';
 import { Users } from './pages/backoffice/Users';
 import { BulkPayments } from './pages/customer/BulkPayments';
+import { MyLoans } from './pages/customer/MyLoans';
 import { Overview } from './pages/customer/Overview';
 import { Simulators } from './pages/customer/Simulators';
 import { TransferPage } from './pages/customer/TransferPage';
@@ -75,6 +77,14 @@ const router = createBrowserRouter([
         ),
       },
       {
+        path: 'banca/creditos',
+        element: (
+          <Guard perms={['loans:read:own']}>
+            <MyLoans />
+          </Guard>
+        ),
+      },
+      {
         path: 'banca/pagos-masivos',
         element: (
           <Guard perms={['payments:batch']}>
@@ -127,6 +137,14 @@ const router = createBrowserRouter([
         element: (
           <Guard perms={['accounts:read:any']}>
             <Customers />
+          </Guard>
+        ),
+      },
+      {
+        path: 'backoffice/creditos',
+        element: (
+          <Guard perms={['loans:read:any']}>
+            <Loans />
           </Guard>
         ),
       },

@@ -33,6 +33,8 @@ public class Account extends TenantOwned {
     /** Aliases of the institution's system-managed (INTERNAL) accounts. */
     public static final String VAULT = "Cash vault";
     public static final String INTEREST_EXPENSE = "Interest expense";
+    public static final String INTEREST_INCOME = "Interest income";
+    public static final String LOAN_PORTFOLIO = "Loan portfolio";
 
     public enum Status { ACTIVE, FROZEN, CLOSED }
 

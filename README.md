@@ -84,6 +84,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Accounts and movements:** balances update live, and a camt.053 statement downloads in one click.
 - **Transfers:** IBAN-style account numbers with ISO 13616 check digits, so a typo is caught before any money moves. Every transfer is idempotent: retries and double clicks never pay twice.
 - **Bulk payments (corporate):** upload a **pain.001** payroll/supplier file and get back a **pain.002** report with the status and ISO reason code of every payment.
+- **Loans:** each loan's outstanding balance, next installment and full amortization schedule (paid, pending, overdue). Installments are debited automatically at the day close.
 - **Financial simulators:**
   - Loan amortization (French and German systems, with credit-life insurance and effective annual rate)
   - Term deposit (360-day year, withholding tax)
@@ -95,6 +96,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Risk review queue:** every held payment shows an *explainable* risk meter, i.e. which signal added how many points against the review and decline thresholds.
 - **Four-eyes approvals with step-up MFA:** transfers above the institution's threshold wait for a second person, who must also enter a fresh code from their authenticator app. Whoever initiated a transfer can never approve it (enforced in the domain model and covered by tests).
 - **Customers and teller operations:** KYC onboarding, cash deposits and withdrawals, account freezing.
+- **Loans:** grant a loan (French amortization) to a customer's account. The disbursement and every installment go through the double-entry ledger (loan portfolio, interest income). The day close collects installments one transaction each, so one short or frozen account never blocks the rest; a missed installment stays overdue and is retried at the next close.
 - **End-of-day close with savings interest:** one click, or the 23:55 schedule as a safety net, credits a day of interest (actual/365) to every savings account in a single balanced journal entry against the interest-expense account. Once per institution and business date, audited, and visible to customers as a movement.
 - **Users, roles and permissions:** a permission matrix with 24 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
 - **Tamper-evident audit trail:** SHA-256 hash chains (16 per institution, so audited writes do not queue behind one lock) with one-click integrity verification.
@@ -148,9 +150,10 @@ testing are fixed and documented in the code:
 - **A stale-entity bug turned concurrent teller deposits into 409s**: 9 of 12 failed, because the deposit and the cash vault were read before being locked. The ledger now locks by re-reading rows `FOR UPDATE`, and `CashIntegrationTest` covers it.
 
 **Testing**
-- 119 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
-- 11 Playwright end-to-end tests against the full Docker stack, run in CI:
+- 126 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
+- 13 Playwright end-to-end tests against the full Docker stack, run in CI:
   - a transfer that goes through risk review, compliance release, and then four-eyes approval with an MFA step-up;
+  - a loan granted in the backoffice, credited to the customer and shown with its schedule; the day close crediting interest;
   - live WebSocket delivery to both the ops feed and the receiving customer;
   - RBAC and tenant isolation;
   - no horizontal overflow on any page, on desktop and on mobile.
@@ -191,7 +194,7 @@ docs/                     ADRs, threat model, ISO 20022 notes, sample pain.001
 | Command | What it does |
 |---|---|
 | `docker compose up --build` | Full stack with demo data on http://localhost:8088 |
-| `./mvnw verify` | 119 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
+| `./mvnw verify` | 126 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
 | `cd web && npm ci && npm run lint && npm test` | ESLint (strict type-checked + a11y + security rules), Vitest |
 | `make e2e` | Playwright end-to-end suite against the running stack |
 | `make load` | k6 load test of the transfer path (`PEAK_RPS=150` by default) |

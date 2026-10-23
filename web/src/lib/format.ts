@@ -14,6 +14,10 @@ const dateOnly = new Intl.DateTimeFormat('es-EC', { dateStyle: 'medium' });
 
 export const formatDateTime = (iso: string): string => dateTime.format(new Date(iso));
 export const formatDate = (iso: string): string => dateOnly.format(new Date(iso));
+/** A business date (yyyy-mm-dd). Read at local noon: a bare date parses as UTC midnight, the day before here. */
+export const formatBusinessDate = (ymd: string): string => formatDate(`${ymd}T12:00:00`);
+export const percent = (value: number): string =>
+  `${value.toLocaleString('es-EC', { minimumFractionDigits: 2 })} %`;
 
 /** EC12 ANDN 1234 5678 9012 34: grouped in fours, the way people read account numbers aloud. */
 export function groupIban(iban: string): string {

@@ -33,6 +33,9 @@ public enum Permission {
     OPS_MONITOR("ops:monitor", "Ver el tablero de operaciones en vivo"),
     OPS_SIMULATE("ops:simulate", "Ejecutar el simulador de tráfico"),
     DAY_CLOSE("ops:close-day", "Ejecutar el cierre de día y abonar intereses"),
+    LOANS_ORIGINATE("loans:originate", "Otorgar créditos y desembolsarlos"),
+    LOANS_READ_OWN("loans:read:own", "Ver sus créditos y su tabla de pagos"),
+    LOANS_READ_ANY("loans:read:any", "Ver los créditos de la institución"),
     SIMULATIONS_USE("simulations:use", "Usar los simuladores financieros"),
     TENANTS_MANAGE("tenants:manage", "Dar de alta y suspender instituciones", Scope.PLATFORM);
 

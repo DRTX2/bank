@@ -18,6 +18,7 @@ import {
   Users,
   Wallet,
   type LucideIcon,
+  HandCoins,
 } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
@@ -40,6 +41,7 @@ const groups: { title: string; items: Item[] }[] = [
     items: [
       { to: '/banca', label: 'Mis cuentas', icon: Wallet, perms: ['accounts:read:own'] },
       { to: '/banca/transferir', label: 'Transferir', icon: ArrowLeftRight, perms: ['transfers:create:own'] },
+      { to: '/banca/creditos', label: 'Mis créditos', icon: HandCoins, perms: ['loans:read:own'] },
       { to: '/banca/pagos-masivos', label: 'Pagos masivos', icon: FileStack, perms: ['payments:batch'] },
       { to: '/simuladores', label: 'Simuladores', icon: Calculator, perms: ['simulations:use'] },
     ],
@@ -56,6 +58,7 @@ const groups: { title: string; items: Item[] }[] = [
         icon: Landmark,
         perms: ['accounts:read:any'],
       },
+      { to: '/backoffice/creditos', label: 'Créditos', icon: HandCoins, perms: ['loans:read:any'] },
       {
         to: '/transferencias',
         label: 'Transferencias',

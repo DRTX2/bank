@@ -13,6 +13,7 @@ import com.drtx.bank.accounts.AccountRepository;
 import com.drtx.bank.accounts.AccountService;
 import com.drtx.bank.ledger.JournalEntry;
 import com.drtx.bank.ledger.LedgerService;
+import com.drtx.bank.loans.LoanService;
 import com.drtx.bank.platform.Tenant;
 import com.drtx.bank.platform.TenantRepository;
 import com.drtx.bank.shared.audit.AuditService;
@@ -45,18 +46,20 @@ public class DayCloseService {
     private final TenantRepository tenants;
     private final LedgerService ledger;
     private final AuditService audit;
+    private final LoanService loans;
     private final TenantScope scope;
     private final ZoneId zone;
 
     DayCloseService(DayCloseRepository closes, AccountRepository accounts, AccountService accountService,
-                    TenantRepository tenants, LedgerService ledger, AuditService audit, TenantScope scope,
-                    @Value("${bank.business-zone}") String zone) {
+                    TenantRepository tenants, LedgerService ledger, AuditService audit, LoanService loans,
+                    TenantScope scope, @Value("${bank.business-zone}") String zone) {
         this.closes = closes;
         this.accounts = accounts;
         this.accountService = accountService;
         this.tenants = tenants;
         this.ledger = ledger;
         this.audit = audit;
+        this.loans = loans;
         this.scope = scope;
         this.zone = ZoneId.of(zone);
     }
@@ -80,9 +83,12 @@ public class DayCloseService {
                 closes.findTop30ByOrderByBusinessDateDesc().stream().map(DayCloseView::of).toList());
     }
 
-    @Transactional
+    /** Interest first, in one transaction; then loan installments, each in its own (see LoanService#collectDue). */
     public DayCloseView closeToday(CurrentUser actor) {
-        return DayCloseView.of(close(actor.tenantId(), actor, LocalDate.now(zone)));
+        LocalDate today = LocalDate.now(zone);
+        DayClose close = scope.inTenant(actor.tenantId(), () -> close(actor.tenantId(), actor, today));
+        loans.collectDue(actor.tenantId(), today);
+        return DayCloseView.of(close);
     }
 
     /** Safety net: institutions nobody closed by hand are closed late in the business day. */
@@ -93,6 +99,8 @@ public class DayCloseService {
             try {
                 scope.inTenant(tenant.getId(),
                         () -> closes.existsByBusinessDate(today) ? null : close(tenant.getId(), null, today));
+                // Also when the day was closed by hand: retries installments that bounced earlier today.
+                loans.collectDue(tenant.getId(), today);
             } catch (RuntimeException e) {
                 log.error("Day close failed for {}", tenant.getCode(), e);
             }

@@ -21,7 +21,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class JournalEntry extends TenantOwned {
 
-    public enum Type { TRANSFER, CASH_DEPOSIT, CASH_WITHDRAWAL, INTEREST }
+    public enum Type { TRANSFER, CASH_DEPOSIT, CASH_WITHDRAWAL, INTEREST, LOAN_DISBURSEMENT, LOAN_REPAYMENT }
 
     @Id
     private UUID id;

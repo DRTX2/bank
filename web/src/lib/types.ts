@@ -120,3 +120,32 @@ export interface PermissionInfo {
   description: string;
   scope: 'TENANT' | 'PLATFORM';
 }
+
+export type InstallmentStatus = 'PAID' | 'PENDING' | 'OVERDUE';
+
+export interface Installment {
+  number: number;
+  dueDate: string;
+  principal: number;
+  interest: number;
+  amount: number;
+  status: InstallmentStatus;
+}
+
+export interface Loan {
+  id: string;
+  customerName: string;
+  accountNumber: string;
+  principal: number;
+  outstanding: number;
+  annualRate: number;
+  termMonths: number;
+  status: 'ACTIVE' | 'PAID_OFF';
+  createdAt: string;
+  next: Installment | null;
+}
+
+export interface LoanDetail {
+  loan: Loan;
+  schedule: Installment[];
+}

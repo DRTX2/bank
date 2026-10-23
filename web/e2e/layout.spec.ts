@@ -5,13 +5,21 @@ import { uiLogin } from './support';
 const pages: [string, string[]][] = [
   [
     'ana@andina.ec',
-    ['/banca', '/banca/transferir', '/banca/pagos-masivos', '/simuladores', '/transferencias'],
+    [
+      '/banca',
+      '/banca/transferir',
+      '/banca/pagos-masivos',
+      '/banca/creditos',
+      '/simuladores',
+      '/transferencias',
+    ],
   ],
   [
     'admin@andina.ec',
     ['/backoffice/operaciones', '/backoffice/usuarios', '/backoffice/roles', '/backoffice/auditoria'],
   ],
   ['cumplimiento@andina.ec', ['/backoffice/riesgo', '/backoffice/clientes']],
+  ['auditor@andina.ec', ['/backoffice/creditos']],
 ];
 
 for (const [email, paths] of pages) {

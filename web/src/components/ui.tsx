@@ -146,6 +146,7 @@ export function Empty({ children }: { children: ReactNode }) {
 const NUMERIC_HEADS = new Set([
   'Monto',
   'Cuentas',
+  'Tasa',
   'Saldo',
   'Cuota',
   'Capital',

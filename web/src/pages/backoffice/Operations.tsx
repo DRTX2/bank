@@ -6,7 +6,7 @@ import { StatusPill } from '../../components/StatusPill';
 import { Button, Empty, ErrorNote, Field, Money, PageHeader, Section, Table } from '../../components/ui';
 import { api } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { formatDate, groupIban } from '../../lib/format';
+import { formatBusinessDate, groupIban, percent } from '../../lib/format';
 import { useStomp } from '../../lib/realtime';
 import type { PaymentEvent, TransferStatus } from '../../lib/types';
 
@@ -258,11 +258,8 @@ function DayCloseSection() {
         {d && (
           <p className="mb-4 max-w-prose text-sm text-ink-2">
             Abona un día de interés a cada cuenta de ahorro (
-            <span className="num">
-              {d.annualRate.toLocaleString('es-EC', { minimumFractionDigits: 2 })} %
-            </span>{' '}
-            anual, base 365) en un solo asiento contable contra gasto por intereses. Si nadie cierra el día,
-            el sistema lo hace a las 23:55.
+            <span className="num">{percent(d.annualRate)}</span> anual, base 365) en un solo asiento contable
+            contra gasto por intereses. Si nadie cierra el día, el sistema lo hace a las 23:55.
           </p>
         )}
         <div className="flex flex-col gap-4">
@@ -273,10 +270,7 @@ function DayCloseSection() {
             <Table head={['Fecha', 'Cuentas', 'Interés', 'Ejecutado por']}>
               {d?.closes.map((c) => (
                 <tr key={c.businessDate}>
-                  {/* Noon local time: a bare yyyy-mm-dd parses as UTC midnight, which is the day before here. */}
-                  <td className="whitespace-nowrap px-4 py-2.5">
-                    {formatDate(`${c.businessDate}T12:00:00`)}
-                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5">{formatBusinessDate(c.businessDate)}</td>
                   <td className="num px-4 py-2.5 text-right">{c.accountsCredited}</td>
                   <td className="px-4 py-2.5 text-right">
                     <Money amount={c.interest} currency="USD" />

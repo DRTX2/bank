@@ -44,7 +44,7 @@ computes its code; the login and approvals screens show it for that demo user).
 - Resources a caller may not see return **404**, not 403 (no ID enumeration).
 - Errors: throw `DomainException(ErrorCode.X)`; responses are RFC 9457 problem details. ISO 20022 reason codes live on `ErrorCode`.
 - Domain events go through `OutboxWriter` in the same transaction, never straight to Kafka.
-- Schema changes: add a new Flyway migration (next is `V7__...`). Never edit an applied one.
+- Schema changes: add a new Flyway migration (next is `V8__...`). Never edit an applied one.
 - Docs and code comments in English; UI strings in Spanish. Backend error messages stay English; the UI translates by
   error code / ISO reason in `web/src/lib/errors.ts` — add new codes there.
 - Approving four-eyes transfers is a step-up: `MfaService.requireStepUp` before `TransferService.approve`.
@@ -66,6 +66,10 @@ computes its code; the login and approvals screens show it for that demo user).
   `dba()` is the owner/superuser view (no RLS) for cross-tenant invariants and DBA-style tampering.
 - Audit writes lock one of 16 hash chains per tenant (`AuditService.CHAINS`), not the whole tenant: a single chain
   lock queued every transfer of a tenant and starved the Hikari pool under load.
+- The day close (`DayCloseService`) books interest in one transaction, then `LoanService.collectDue` debits each due
+  installment in its own: a bounced installment must never roll back the close. Business dates use `bank.business-zone`.
+- Internal accounts are found by alias (`Account.VAULT`, `INTEREST_EXPENSE`, `INTEREST_INCOME`, `LOAN_PORTFOLIO`),
+  opened on first use by `AccountService.internal`; never by "first INTERNAL account".
 - The API answers before `DemoDataSeeder` finishes: wait for `cajero@pacifico.ec` to log in, not just `/tenants`.
 - nginx upstream is named `core-banking` (the name becomes the Host header; Tomcat rejects `_`). Never add
   `add_header` inside a `location` (it drops the server-level security headers).
