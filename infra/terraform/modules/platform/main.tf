@@ -286,7 +286,7 @@ module "data" {
 # ---------------------------------------------------------------- secrets (values are set out of band, never in Terraform)
 
 resource "aws_secretsmanager_secret" "app" {
-  for_each                = toset(["jwt-signing-key", "core-banking-db", "risk-engine-db"])
+  for_each                = toset(["jwt-signing-key", "mfa-seed-key", "core-banking-db", "risk-engine-db"])
   name                    = "${local.name}/${each.key}"
   kms_key_id              = aws_kms_key.this.arn
   recovery_window_in_days = var.deletion_protection ? 30 : 0
@@ -353,6 +353,7 @@ module "core_banking" {
     DB_PASSWORD     = "${aws_secretsmanager_secret.app["core-banking-db"].arn}:password::"
     JWT_PRIVATE_KEY = "${aws_secretsmanager_secret.app["jwt-signing-key"].arn}:private::"
     JWT_PUBLIC_KEY  = "${aws_secretsmanager_secret.app["jwt-signing-key"].arn}:public::"
+    MFA_SEED_KEY    = aws_secretsmanager_secret.app["mfa-seed-key"].arn # base64, 32 random bytes
   }
 }
 

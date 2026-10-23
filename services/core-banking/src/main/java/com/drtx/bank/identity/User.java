@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -43,7 +44,7 @@ public class User extends TenantOwned {
     private int failedLogins;
     private Instant lockedUntil;
     private Instant createdAt;
-    // shortcut: TOTP seed stored as-is (the volume is KMS-encrypted at rest), envelope-encrypt it with a KMS data key before production
+    @Convert(converter = MfaSeedConverter.class)
     private String mfaSecret;
     private Instant mfaEnabledAt;
     private long mfaLastStep;

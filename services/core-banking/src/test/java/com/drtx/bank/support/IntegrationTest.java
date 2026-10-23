@@ -43,10 +43,18 @@ public abstract class IntegrationTest {
     protected MockMvc mvc;
     @Autowired
     protected FakeRiskEngine risk;
+    /** The app's JdbcTemplate: runs as kuntur_app, so row-level security applies. */
     @Autowired
     protected JdbcTemplate jdbc;
     @Autowired
+    private IntegrationTestConfig.DbaJdbc dbaJdbc;
+    @Autowired
     protected ObjectMapper json;
+
+    /** Owner-level access for cross-tenant invariants and for tampering as a DBA would; bypasses row-level security. */
+    protected JdbcTemplate dba() {
+        return dbaJdbc.jdbc();
+    }
 
     @AfterEach
     void resetRisk() {

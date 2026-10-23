@@ -1,5 +1,6 @@
 package com.drtx.bank.identity;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -36,6 +37,15 @@ class MfaIntegrationTest extends IntegrationTest {
         loginWith(manager.email(), code)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("MFA_INVALID"));
+    }
+
+    @Test
+    void theSeedIsSealedInTheDatabase() throws Exception {
+        Officer manager = newMfaManager();
+
+        String stored = dba().queryForObject("select mfa_secret from users where email = ?", String.class,
+                manager.email());
+        assertThat(stored).startsWith("v1:").doesNotContain(manager.mfaSecret());
     }
 
     @Test

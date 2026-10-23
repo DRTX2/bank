@@ -4,7 +4,7 @@ Multi-tenant core banking showcase (portfolio flagship). Read `README.md` for th
 `docs/adr/` for decisions, `docs/threat-model.md` for security gaps already accepted.
 
 ## Layout
-- `pom.xml` — Maven monorepo (Spring Boot 4.1.1, Java 21): `proto/`, `services/core-banking/`, `services/risk-engine/`.
+- `pom.xml` — Maven monorepo (Spring Boot 4.1.2, Java 21): `proto/`, `services/core-banking/`, `services/risk-engine/`.
 - `services/core-banking/src/main/java/com/drtx/bank/` — modular monolith: `platform`, `identity`, `accounts`,
   `ledger`, `payments` (+ `iso20022`, `risk`), `simulations`, `realtime`, `ops`, `demo`, `shared/{security,tenancy,audit,outbox,error,web}`.
 - `services/risk-engine/` — gRPC server (:9090) + Kafka consumer + rule engine (`RiskRules`) + feature store.
@@ -21,7 +21,7 @@ Multi-tenant core banking showcase (portfolio flagship). Read `README.md` for th
 | Full stack (demo data, simulator) | `make up` → http://localhost:8088 · `make down` |
 | Stack + Prometheus/Grafana | `make observability` (Prometheus :9091, Grafana :3000) |
 | E2E (Playwright, needs `make up`) | `make e2e` (one spec: `cd web && npx playwright test e2e/payments.spec.ts`) |
-| Load test (k6 in Docker, needs `make up`) | `make load` (`PEAK_RPS=150` default; 150/s → p95 ≈ 80 ms on the dev laptop) |
+| Load test (k6 in Docker, needs `make up`) | `make load` (`PEAK_RPS=150` default; 150/s → p95 ≈ 14 ms warm on the dev laptop) |
 | README screenshots | `cd web && npm run screenshots` → `docs/screenshots/` |
 | Terraform fmt/validate (via Docker) | `make tf-validate` |
 | Security scans | `make scan` |
@@ -38,11 +38,13 @@ computes its code; the login and approvals screens show it for that demo user).
 - Money is `long` minor units end to end (`bigint` in SQL). Never `double`/`BigDecimal` in the domain.
 - Ledger postings are append-only (DB triggers). Book money only through `LedgerService.post`.
 - Tenant-owned entities implement `TenantOwned` (`@TenantId`). Cross-tenant work goes through `TenantScope.asSystem`.
+  PostgreSQL RLS enforces the same boundary (ADR-0009): a new table with `tenant_id` must be added to the policy loop
+  in a migration (`RowLevelSecurityIntegrationTest` fails otherwise). Raw SQL outside a transaction sees no tenant rows.
   Tenancy is fail-closed: no tenant bound → queries match nothing.
 - Resources a caller may not see return **404**, not 403 (no ID enumeration).
 - Errors: throw `DomainException(ErrorCode.X)`; responses are RFC 9457 problem details. ISO 20022 reason codes live on `ErrorCode`.
 - Domain events go through `OutboxWriter` in the same transaction, never straight to Kafka.
-- Schema changes: add a new Flyway migration (next is `V3__...`). Never edit an applied one.
+- Schema changes: add a new Flyway migration (next is `V6__...`). Never edit an applied one.
 - Docs and code comments in English; UI strings in Spanish. Backend error messages stay English; the UI translates by
   error code / ISO reason in `web/src/lib/errors.ts` — add new codes there.
 - Approving four-eyes transfers is a step-up: `MfaService.requireStepUp` before `TransferService.approve`.
@@ -51,14 +53,19 @@ computes its code; the login and approvals screens show it for that demo user).
 
 ## Gotchas
 - protobuf must stay 4.x: the micrometer OTLP exporter breaks on 3.x (`RuntimeVersion$RuntimeDomain`).
-- `pom.xml` has security overrides (tomcat, jackson, lz4). Remove them once Spring Boot ships the fixes.
+- `pom.xml` keeps one security override (lz4-java, transitive via kafka-clients). Remove it once Kafka ships the fix.
 - The user's shell is zsh: no word splitting of unquoted variables. Wrap docker one-liners in `bash -c` when that matters.
 - Risk engine cold start: the gRPC channel connects eagerly (`RiskChannelConfig`) so the first transfer does not blow the 500 ms deadline.
 - Trivy in CI pre-populates `~/.m2` to avoid Maven Central HTTP 429.
 - Virtual threads are **off** on purpose (Java 21 pinning: p95 4.8 s vs 27 ms at 140 req/s). Re-enable only on Java 24+
   and re-run `make load`.
+- `MFA_SEED_KEY` (base64, 32 bytes) seals TOTP seeds (`MfaSeedConverter`). Local default is a published dev key; the `aws` profile has no default and fails fast.
 - TOTP codes are single-use per user: tests use `otp(secret, +1)` for the next code after login/activation; E2E
   `mfaLogin` waits for the next 30 s window if a previous run spent the current one.
+- The app runs as `kuntur_app` (`SET ROLE` in Hikari `connection-init-sql`); Flyway connects as the owner. In tests,
+  `dba()` is the owner/superuser view (no RLS) for cross-tenant invariants and DBA-style tampering.
+- Audit writes lock one of 16 hash chains per tenant (`AuditService.CHAINS`), not the whole tenant: a single chain
+  lock queued every transfer of a tenant and starved the Hikari pool under load.
 - The API answers before `DemoDataSeeder` finishes: wait for `cajero@pacifico.ec` to log in, not just `/tenants`.
 - nginx upstream is named `core-banking` (the name becomes the Host header; Tomcat rejects `_`). Never add
   `add_header` inside a `location` (it drops the server-level security headers).

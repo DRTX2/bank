@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.1.1</version>
+        <version>4.1.2</version>
         <relativePath/>
     </parent>
 
@@ -32,12 +32,6 @@
         <springdoc.version>3.1.1</springdoc.version>
         <archunit.version>1.5.1</archunit.version>
         <msk-iam-auth.version>2.3.9</msk-iam-auth.version>
-
-        <!-- Security patch overrides of Boot-managed versions (same minor line, patch bumps only).
-             Remove each one once a Spring Boot release ships the fix; Trivy in CI flags regressions. -->
-        <tomcat.version>11.0.27</tomcat.version>              <!-- CVE fixed in 11.0.25 -->
-        <jackson-bom.version>3.1.8</jackson-bom.version>      <!-- jackson-core/databind DoS, fixed 3.1.7 -->
-        <jackson-2-bom.version>2.21.8</jackson-2-bom.version> <!-- same CVEs on the 2.x line, fixed 2.21.7 -->
     </properties>
 
     <dependencyManagement>

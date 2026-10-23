@@ -20,5 +20,5 @@ so Hibernate stamps inserts and filters every query automatically.
 ## Consequences
 - Cheap to onboard a tenant (one row plus seed data), simple migrations, efficient connection pooling.
 - Isolation depends on application code, so it is covered by integration tests (`tenantsAreIsolated`).
-- Next hardening step: PostgreSQL Row-Level Security keyed on a `SET LOCAL app.tenant_id`, as defence in depth
-  against a future native query that forgets the filter.
+- PostgreSQL row-level security now enforces the same boundary underneath, as defence in depth against a native
+  query that forgets the filter ([ADR-0009](0009-postgres-row-level-security.md)).

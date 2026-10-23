@@ -6,3 +6,8 @@ spring:
       sasl.mechanism: AWS_MSK_IAM
       sasl.jaas.config: software.amazon.msk.auth.iam.IAMLoginModule required;
       sasl.client.callback.handler.class: software.amazon.msk.auth.iam.IAMClientCallbackHandler
+
+bank:
+  security:
+    mfa:
+      seed-key: ${MFA_SEED_KEY} # no default: startup fails without it, so the published dev key never reaches AWS

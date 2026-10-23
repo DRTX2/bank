@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { QrCode } from '../components/QrCode';
 import { RiskMeter } from '../components/RiskMeter';
 import { StatusPill } from '../components/StatusPill';
 import { groupIban, money } from '../lib/format';
@@ -16,6 +17,14 @@ describe('RiskMeter', () => {
   it('shows unknown codes verbatim instead of hiding them', () => {
     render(<RiskMeter score={12} signals={['SOMETHING_NEW']} />);
     expect(screen.getByText('SOMETHING_NEW')).toBeInTheDocument();
+  });
+});
+
+describe('QrCode', () => {
+  it('draws the otpauth URI as a labelled SVG with dark modules', () => {
+    render(<QrCode value="otpauth://totp/Kuntur:ana?secret=ABCDEFGH" label="QR de prueba" />);
+    const svg = screen.getByRole('img', { name: 'QR de prueba' });
+    expect(svg.querySelector('path')?.getAttribute('d')).toMatch(/^M\d+ \d+h1v1h-1z/);
   });
 });
 

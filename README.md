@@ -96,7 +96,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Four-eyes approvals with step-up MFA:** transfers above the institution's threshold wait for a second person, who must also enter a fresh code from their authenticator app. Whoever initiated a transfer can never approve it (enforced in the domain model and covered by tests).
 - **Customers and teller operations:** KYC onboarding, cash deposits and withdrawals, account freezing.
 - **Users, roles and permissions:** a permission matrix with 24 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
-- **Tamper-evident audit trail:** SHA-256 hash chain with one-click integrity verification.
+- **Tamper-evident audit trail:** SHA-256 hash chains (16 per institution, so audited writes do not queue behind one lock) with one-click integrity verification.
 
 ### For the platform operator
 - **Institution provisioning:** creating a tenant atomically creates its roles, cash vault account and first administrator.
@@ -116,8 +116,9 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - Stateless RS256 JWT access tokens (10 min) carry the effective permissions.
 - Refresh tokens are opaque and stored hashed. They rotate on every use with **reuse detection**: replaying an old token revokes the whole session family (OAuth 2.0 Security BCP).
 - Login has a per-IP rate limit, per-user lockout, and constant-time handling of unknown emails. Passwords are BCrypt.
-- **Two-factor authentication (TOTP, RFC 6238)** with self-service enrollment, implemented on the JDK. Approving a high-value transfer needs a fresh, **single-use** code (step-up), so a stolen session alone cannot move money. Wrong codes count towards the lockout ([ADR-0008](docs/adr/0008-totp-mfa-and-step-up.md)).
+- **Two-factor authentication (TOTP, RFC 6238)** with self-service enrollment (QR code), implemented on the JDK; seeds are AES-GCM sealed in the database. Approving a high-value transfer needs a fresh, **single-use** code (step-up), so a stolen session alone cannot move money. Wrong codes count towards the lockout ([ADR-0008](docs/adr/0008-totp-mfa-and-step-up.md)).
 - Multi-tenancy uses a shared schema and Hibernate `@TenantId`, and is **fail-closed**: with no tenant bound, queries match nothing. Cross-tenant access must opt in to an explicit system scope ([ADR-0002](docs/adr/0002-multi-tenancy-shared-schema.md)).
+- **PostgreSQL row-level security** enforces the same boundary underneath: the app runs as a role that owns nothing, and each transaction carries its tenant, so even a raw SQL query that forgets `tenant_id` sees only its own institution. A test proves it with plain SQL and fails the build if a tenant table lacks policies ([ADR-0009](docs/adr/0009-postgres-row-level-security.md)).
 - Ownership-aware authorization (`accounts:read:own` vs `accounts:read:any`). A resource you may not see returns `404`, not `403`, so IDs cannot be enumerated.
 - An architecture test fails the build if any endpoint lacks `@PreAuthorize` or references a permission that does not exist.
 - XML parsing is hardened against XXE (covered by a test). Problem details follow RFC 9457 and never leak internals. The SPA has a strict CSP, and nginx/CloudFront add the security headers.
@@ -131,23 +132,25 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 
 | Load (transfers/s, sustained) | p50 | p95 | p99 | Errors |
 |---|---|---|---|---|
-| 100 | 10 ms | 18 ms | 30 ms | 0 % |
-| 150 | 10 ms | 81 ms | 155 ms | 0 % |
+| 150 | 10 ms | 14 ms | 22 ms | 0 % |
+
+Warm JVM, 2-minute ramp and hold. The first run after a restart (JIT warm-up) measured p95 157 ms.
 
 Every request is a full transfer: idempotency check, real risk scoring over gRPC, a double-entry booking under
-row locks, an audit hash-chain entry and an outbox event. Two findings from load testing are fixed and documented
+row locks, an audit hash-chain entry and an outbox event. Three findings from load testing are fixed and documented
 in the code:
 - **Virtual threads are off on purpose**: on Java 21, blocking inside `synchronized` code in the JDBC, gRPC and Kafka clients *pins* virtual threads to their carrier threads. At 140 transfers/s, p95 was 4.8 s with virtual threads and 27 ms without. They should be re-enabled on Java 24+ (JEP 491).
+- **One audit lock per institution capped throughput**: every audited write held the tenant's hash-chain lock until commit. A thread dump under load showed 180 of 200 request threads waiting for a database connection, while 18 held one and waited on that lock (p95 of several seconds). Records now spread over 16 independent chains per institution, each resource always on the same one, and p95 at 150 transfers/s dropped to 14 ms.
 - **A stale-entity bug turned concurrent teller deposits into 409s**: 9 of 12 failed, because the deposit and the cash vault were read before being locked. The ledger now locks by re-reading rows `FOR UPDATE`, and `CashIntegrationTest` covers it.
 
 **Testing**
-- 109 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
+- 119 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
 - 11 Playwright end-to-end tests against the full Docker stack, run in CI:
   - a transfer that goes through risk review, compliance release, and then four-eyes approval with an MFA step-up;
   - live WebSocket delivery to both the ops feed and the receiving customer;
   - RBAC and tenant isolation;
   - no horizontal overflow on any page, on desktop and on mobile.
-- 10 front-end unit tests, including the browser TOTP against the RFC 6238 vectors (the same vectors as the server).
+- 11 front-end unit tests, including the browser TOTP against the RFC 6238 vectors (the same vectors as the server).
 
 **Observability**
 - Structured ECS JSON logs, Prometheus metrics (`kuntur.transfers.*`, `kuntur.risk.latency` p95/p99, outbox throughput) and OpenTelemetry tracing.
@@ -184,7 +187,7 @@ docs/                     ADRs, threat model, ISO 20022 notes, sample pain.001
 | Command | What it does |
 |---|---|
 | `docker compose up --build` | Full stack with demo data on http://localhost:8088 |
-| `./mvnw verify` | 109 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
+| `./mvnw verify` | 119 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
 | `cd web && npm ci && npm run lint && npm test` | ESLint (strict type-checked + a11y + security rules), Vitest |
 | `make e2e` | Playwright end-to-end suite against the running stack |
 | `make load` | k6 load test of the transfer path (`PEAK_RPS=150` by default) |

@@ -38,7 +38,7 @@ class TransferIntegrationTest extends IntegrationTest {
         assertThat(balance(ana.token(), ana.accountId())).isEqualByComparingTo("749.25");
         assertThat(balance(bob.token(), bob.accountId())).isEqualByComparingTo("250.75");
         // Ledger invariant: every journal entry nets to zero.
-        Long unbalanced = jdbc.queryForObject(
+        Long unbalanced = dba().queryForObject(
                 "select count(*) from (select journal_id from postings group by journal_id having sum(amount_minor) <> 0) x",
                 Long.class);
         assertThat(unbalanced).isZero();

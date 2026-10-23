@@ -19,9 +19,9 @@ class AuditTrailIntegrationTest extends IntegrationTest {
 
     @Test
     void ledgerAndAuditAreAppendOnlyAtTheDatabaseLevel() {
-        assertThatThrownBy(() -> jdbc.update("update audit_log set action = 'X' where id = (select min(id) from audit_log)"))
+        assertThatThrownBy(() -> dba().update("update audit_log set action = 'X' where id = (select min(id) from audit_log)"))
                 .hasMessageContaining("append-only");
-        assertThatThrownBy(() -> jdbc.update("delete from postings where id = (select min(id) from postings)"))
+        assertThatThrownBy(() -> dba().update("delete from postings where id = (select min(id) from postings)"))
                 .hasMessageContaining("append-only");
     }
 
@@ -41,15 +41,18 @@ class AuditTrailIntegrationTest extends IntegrationTest {
 
         mvc.perform(get("/api/v1/audit/verify").header("Authorization", "Bearer " + admin))
                 .andExpect(jsonPath("$.valid").value(true));
+        // Records of unrelated resources land on different chains, and each chain verifies on its own.
+        assertThat(dba().queryForObject("select count(distinct chain) from audit_log where tenant_id = ?", Long.class,
+                dba().queryForObject("select id from tenants where code = ?", UUID.class, code))).isGreaterThan(1);
 
         UUID tenantId = jdbc.queryForObject("select id from tenants where code = ?", UUID.class, code);
-        Long victim = jdbc.queryForObject("select min(id) from audit_log where tenant_id = ?", Long.class, tenantId);
+        Long victim = dba().queryForObject("select min(id) from audit_log where tenant_id = ?", Long.class, tenantId);
         // A DBA bypasses the trigger and rewrites history...
-        jdbc.execute("alter table audit_log disable trigger audit_append_only");
+        dba().execute("alter table audit_log disable trigger audit_append_only");
         try {
-            jdbc.update("update audit_log set details = 'nothing to see here' where id = ?", victim);
+            dba().update("update audit_log set details = 'nothing to see here' where id = ?", victim);
         } finally {
-            jdbc.execute("alter table audit_log enable trigger audit_append_only");
+            dba().execute("alter table audit_log enable trigger audit_append_only");
         }
         // ...and the chain exposes exactly where.
         mvc.perform(get("/api/v1/audit/verify").header("Authorization", "Bearer " + admin))

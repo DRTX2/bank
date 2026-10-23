@@ -6,8 +6,11 @@ import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 import com.drtx.bank.shared.security.CurrentUser;
@@ -19,14 +22,16 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Tamper-evident audit trail: each record stores SHA-256(previous hash + content), forming a per-tenant
- * hash chain. Editing or deleting any row breaks every hash after it, which {@link #verify} detects.
+ * Tamper-evident audit trail: each record stores SHA-256(previous hash + content), forming {@link #CHAINS} hash
+ * chains per tenant. Editing or deleting any row breaks every hash after it in its chain, which {@link #verify} detects.
  * Rows are also append-only at the database level (trigger), so tampering requires DBA privileges.
  */
 @Service
 public class AuditService {
 
     static final String GENESIS = "0".repeat(64);
+    /** Writers on different chains never wait for each other; a single chain capped a tenant's write throughput. */
+    static final int CHAINS = 16;
 
     private final JdbcTemplate jdbc;
 
@@ -38,23 +43,25 @@ public class AuditService {
     @Transactional(propagation = Propagation.MANDATORY)
     public void record(UUID tenantId, CurrentUser actor, String action, String resourceType, Object resourceId,
                        String details) {
-        // shortcut: serialises audit writes per tenant; at very high volume move sealing to an async chainer.
+        // A resource always maps to the same chain, so its own history stays in order under that chain's lock.
+        int chain = Math.floorMod(Objects.hash(resourceType, resourceId == null ? null : resourceId.toString()), CHAINS);
         jdbc.queryForObject("select pg_advisory_xact_lock(hashtextextended(?, 0))", Object.class,
-                "audit:" + tenantId);
+                "audit:" + tenantId + ":" + chain);
         List<String> last = jdbc.queryForList(
-                "select hash from audit_log where tenant_id = ? order by id desc limit 1", String.class, tenantId);
+                "select hash from audit_log where tenant_id = ? and chain = ? order by id desc limit 1", String.class,
+                tenantId, chain);
         String prev = last.isEmpty() ? GENESIS : last.getFirst();
         Instant now = Instant.now().truncatedTo(ChronoUnit.MICROS);
         AuditRecord rec = new AuditRecord(0, tenantId, actor == null ? null : actor.id(),
                 actor == null ? null : actor.email(), action, resourceType,
-                resourceId == null ? null : resourceId.toString(), truncate(details), now, prev, null);
+                resourceId == null ? null : resourceId.toString(), truncate(details), now, prev, null, chain);
         String hash = hash(rec);
         jdbc.update("""
                         insert into audit_log (tenant_id, actor_id, actor_email, action, resource_type, resource_id,
-                                               details, created_at, prev_hash, hash)
-                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                                               details, created_at, prev_hash, hash, chain)
+                        values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 rec.tenantId(), rec.actorId(), rec.actorEmail(), rec.action(), rec.resourceType(), rec.resourceId(),
-                rec.details(), Timestamp.from(now), prev, hash);
+                rec.details(), Timestamp.from(now), prev, hash, chain);
     }
 
     @Transactional(readOnly = true)
@@ -69,14 +76,14 @@ public class AuditService {
 
     @Transactional(readOnly = true)
     public Verification verify(UUID tenantId) {
-        String expectedPrev = GENESIS;
+        Map<Integer, String> lastHash = new HashMap<>();
         long checked = 0;
         // shortcut: loads the tenant's chain in one query; page by id ranges once it exceeds ~1M rows.
         for (AuditRecord rec : jdbc.query("select * from audit_log where tenant_id = ? order by id", MAPPER, tenantId)) {
-            if (!rec.prevHash().equals(expectedPrev) || !rec.hash().equals(hash(rec))) {
+            if (!rec.prevHash().equals(lastHash.getOrDefault(rec.chain(), GENESIS)) || !rec.hash().equals(hash(rec))) {
                 return new Verification(false, checked, rec.id());
             }
-            expectedPrev = rec.hash();
+            lastHash.put(rec.chain(), rec.hash());
             checked++;
         }
         return new Verification(true, checked, null);
@@ -103,11 +110,11 @@ public class AuditService {
             rs.getObject("tenant_id", UUID.class), rs.getObject("actor_id", UUID.class), rs.getString("actor_email"),
             rs.getString("action"), rs.getString("resource_type"), rs.getString("resource_id"),
             rs.getString("details"), rs.getTimestamp("created_at").toInstant(), rs.getString("prev_hash"),
-            rs.getString("hash"));
+            rs.getString("hash"), rs.getInt("chain"));
 
     public record AuditRecord(long id, UUID tenantId, UUID actorId, String actorEmail, String action,
                               String resourceType, String resourceId, String details, Instant createdAt,
-                              String prevHash, String hash) {
+                              String prevHash, String hash, int chain) {
     }
 
     public record Verification(boolean valid, long checkedRecords, Long firstBrokenId) {

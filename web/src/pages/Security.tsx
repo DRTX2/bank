@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { QrCode } from '../components/QrCode';
 import { Button, ErrorNote, Field, PageHeader, Section } from '../components/ui';
 import { api } from '../lib/api';
 import type { Profile } from '../lib/types';
@@ -81,13 +82,18 @@ export function Security() {
               }}
             >
               <p>
-                Agrega esta clave en Google Authenticator, Microsoft Authenticator u otra app compatible. En
-                el teléfono puedes{' '}
+                Escanea el código QR con Google Authenticator, Microsoft Authenticator u otra app compatible.
+                En el teléfono puedes{' '}
                 <a className="text-lapis underline" href={enrollment.otpauthUri}>
                   abrirla directamente en la app
                 </a>
                 .
               </p>
+              <QrCode
+                value={enrollment.otpauthUri}
+                label="Código QR para registrar la verificación en dos pasos"
+              />
+              <p className="text-sm text-ink-2">¿No puedes escanear? Ingresa esta clave a mano:</p>
               <p className="num rounded-md border border-line bg-surface px-3 py-2 text-lg tracking-wide break-all">
                 {enrollment.secret.replace(/(.{4})/g, '$1 ').trim()}
               </p>

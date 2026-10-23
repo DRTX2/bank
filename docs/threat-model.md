@@ -15,7 +15,7 @@ evidence.
 | **Tampering** | Malicious XML (XXE, billion laughs) | DTDs disabled, no external entities, secure processing, 2 MB and 500-transaction caps | `Pain001ParserTest.blocksXxeAttacks` |
 | **Tampering** | Tampered container image in the registry | Keyless cosign signatures, verified before promotion to ECR; immutable ECR tags | `containers.yml`, `deploy.yml` |
 | **Repudiation** | "I never approved that transfer" | Every sensitive action is audited with actor, time and notes; four-eyes records reviewer and note; chain verification | `/api/v1/audit/verify` |
-| **Information disclosure** | Reading another institution's data | Fail-closed Hibernate tenant filter; tenant only from the signed token | `tenantsAreIsolated` |
+| **Information disclosure** | Reading another institution's data | Fail-closed Hibernate tenant filter; tenant only from the signed token; PostgreSQL row-level security underneath, with the app running as a role that owns nothing | `tenantsAreIsolated`, `RowLevelSecurityIntegrationTest`, ADR-0009 |
 | **Information disclosure** | Enumerating other customers' accounts | Ownership checks return `404`, not `403`; destination lookup reveals only a masked name | `customersOnlySeeTheirOwnAccounts` |
 | **Information disclosure** | Leaking internals in errors or logs | RFC 9457 problems without stack traces; WAF logs redact `Authorization`; no PII in log statements | `GlobalExceptionHandler` |
 | **Information disclosure** | Data at rest or in transit | KMS on RDS, logs, secrets, ECR and the site bucket; TLS enforced on RDS (`rds.force_ssl`), MSK (IAM over TLS) and the edge (TLS 1.2+) | `infra/terraform` |
@@ -27,7 +27,7 @@ evidence.
 | **Elevation of privilege** | Compromised CI pipeline | Actions pinned by SHA; least-privilege job permissions; OIDC role scoped to repo and environment; prod requires reviewers | `.github/workflows` |
 
 ## Known gaps / roadmap
-- PostgreSQL Row-Level Security as a second tenancy barrier (ADR-0002).
+- A dedicated database login for the app in production instead of `SET ROLE` from the owner user (ADR-0009).
 - mTLS between services (ECS Service Connect TLS with ACM Private CA).
-- WebAuthn/passkeys (phishing-resistant) on top of TOTP, and envelope encryption of TOTP seeds with KMS.
+- WebAuthn/passkeys (phishing-resistant) on top of TOTP, and KMS data keys with rotation for the TOTP seed key (seeds are already AES-GCM sealed).
 - BFF with httpOnly cookies instead of tokens in `sessionStorage` for the SPA.

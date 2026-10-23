@@ -25,5 +25,7 @@ insider, not an attacker who holds the approver's session.
   single-use codes, and banking apps behave the same way.
 - The demo seeds `gerente@andina.ec` with a published secret, and the UI shows that user's current code, so
   reviewers can try the flow without a phone. Real users enroll under *Seguridad*.
-- Shortcut: the TOTP seed is stored in plain text in the KMS-encrypted database. Before production it should be
-  envelope-encrypted with a KMS data key. WebAuthn/passkeys would add phishing resistance and are the next step.
+- The TOTP seed is sealed with AES-256-GCM before it is stored (`MfaSeedConverter`, `v1:` prefix). The key comes
+  from `MFA_SEED_KEY` (Secrets Manager in AWS; the `aws` profile refuses to start without it). Local runs use a
+  published dev key. Shortcut: one app-level key, no rotation and no per-row AAD; move to KMS data keys when rotation
+  is required. WebAuthn/passkeys would add phishing resistance and are the next step.
