@@ -42,22 +42,22 @@ export function Loans() {
             {loans.data?.length === 0 ? (
               <Empty>Todavía no hay créditos.</Empty>
             ) : (
-              <Table head={['Cliente', 'Cuenta', 'Monto', 'Saldo', 'Tasa', 'Próxima cuota', 'Estado']}>
+              <Table head={['Cliente', 'Monto', 'Saldo', 'Tasa', 'Próxima cuota']}>
                 {loans.data?.map((l) => (
                   <tr key={l.id} className={selected === l.id ? 'bg-surface-2' : ''}>
                     <td className="px-4 py-2.5">
                       <button
                         type="button"
-                        className="text-left text-lapis underline"
+                        className="whitespace-nowrap text-left text-lapis underline"
                         onClick={() => {
                           setSelected(l.id);
                         }}
                       >
                         {l.customerName}
                       </button>
-                    </td>
-                    <td className="num whitespace-nowrap px-4 py-2.5 text-ink-2">
-                      {groupIban(l.accountNumber)}
+                      <span className="num block whitespace-nowrap text-xs text-ink-2">
+                        {groupIban(l.accountNumber)}
+                      </span>
                     </td>
                     <td className="px-4 py-2.5 text-right">
                       <Money amount={l.principal} currency="USD" />
@@ -67,9 +67,12 @@ export function Loans() {
                     </td>
                     <td className="num whitespace-nowrap px-4 py-2.5 text-right">{percent(l.annualRate)}</td>
                     <td className="whitespace-nowrap px-4 py-2.5">
-                      {l.next ? formatBusinessDate(l.next.dueDate) : '—'}
+                      {l.status === 'PAID_OFF'
+                        ? 'Cancelado'
+                        : l.next
+                          ? formatBusinessDate(l.next.dueDate)
+                          : '—'}
                     </td>
-                    <td className="px-4 py-2.5">{l.status === 'PAID_OFF' ? 'Cancelado' : 'Vigente'}</td>
                   </tr>
                 ))}
               </Table>

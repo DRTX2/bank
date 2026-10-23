@@ -28,7 +28,11 @@ customer (`ana@andina.ec`) starts with a loan, so *Mis créditos* and the backof
 | ![Risk review queue](docs/screenshots/risk-review.png) | ![Four-eyes approval with step-up](docs/screenshots/approvals-step-up.png) |
 | Risk review: every point of the score is explained | Four-eyes approval: needs a second person *and* a fresh MFA code |
 | ![Permission matrix](docs/screenshots/roles-matrix.png) | ![Dark mode](docs/screenshots/customer-overview-dark.png) |
-| 24 granular permissions × 8 system roles, plus custom roles | Dark mode with its own palette, not an automatic inversion |
+| 28 granular permissions × 8 system roles, plus custom roles | Dark mode with its own palette, not an automatic inversion |
+| ![Customer loans](docs/screenshots/my-loans.png) | ![Loan portfolio](docs/screenshots/loans-portfolio.png) |
+| Loans: outstanding balance, next installment and the full schedule | Loan portfolio: granting a loan disburses it through the ledger |
+| ![End-of-day close](docs/screenshots/day-close.png) | ![Financial simulators](docs/screenshots/simulators.png) |
+| End-of-day close: one day of savings interest, one journal entry | Simulators: French and German amortization, term deposits, savings goals |
 
 ---
 
@@ -100,7 +104,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Customers and teller operations:** KYC onboarding, cash deposits and withdrawals, account freezing.
 - **Loans:** grant a loan (French amortization) to a customer's account. The disbursement and every installment go through the double-entry ledger (loan portfolio, interest income). The day close collects installments one transaction each, so one short or frozen account never blocks the rest; a missed installment stays overdue and is retried at the next close.
 - **End-of-day close with savings interest:** one click, or the 23:55 schedule as a safety net, credits a day of interest (actual/365) to every savings account in a single balanced journal entry against the interest-expense account. Once per institution and business date, audited, and visible to customers as a movement.
-- **Users, roles and permissions:** a permission matrix with 24 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
+- **Users, roles and permissions:** a permission matrix with 28 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
 - **Tamper-evident audit trail:** SHA-256 hash chains (16 per institution, so audited writes do not queue behind one lock) with one-click integrity verification.
 
 ### For the platform operator

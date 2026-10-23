@@ -47,6 +47,7 @@ test('customer screens', async ({ browser }) => {
   await page.goto('/simuladores');
   await page.getByRole('button', { name: 'Calcular cuotas' }).click();
   await shot(page, 'simulators');
+  await shot(page, 'my-loans', '/banca/creditos');
   const dark = await as(browser, 'ana@andina.ec', { ...desktop, colorScheme: 'dark' });
   await shot(dark, 'customer-overview-dark', '/banca');
   const mobile = await as(browser, 'ana@andina.ec', { viewport: { width: 390, height: 844 } });
@@ -59,6 +60,13 @@ test('backoffice screens', async ({ browser }) => {
   await admin.getByRole('button', { name: 'Iniciar simulación' }).click();
   await admin.waitForTimeout(6_000);
   await shot(admin, 'operations-live');
+  // Closes today's business day for Andina; the day-close E2E accepts an already closed day.
+  const close = admin.getByRole('button', { name: 'Cerrar el día y abonar intereses' });
+  if (await close.isVisible()) await close.click();
+  await admin.getByRole('button', { name: 'Día cerrado' }).waitFor();
+  await admin.getByRole('heading', { name: 'Cierre de día' }).scrollIntoViewIfNeeded();
+  await admin.waitForTimeout(800);
+  await admin.screenshot({ path: `${OUT}day-close.png` });
   await shot(admin, 'roles-matrix', '/backoffice/roles');
   const compliance = await as(browser, 'cumplimiento@andina.ec');
   await shot(compliance, 'risk-review', '/backoffice/riesgo');
@@ -85,4 +93,7 @@ test('MFA and step-up approval', async ({ browser, request }) => {
   const manager = await browser.newPage(desktop);
   await mfaLogin(manager, 'gerente@andina.ec', GERENTE_SECRET);
   await shot(manager, 'approvals-step-up', '/backoffice/aprobaciones');
+  await manager.goto('/backoffice/creditos');
+  await manager.getByRole('button', { name: 'Ana Morales' }).click();
+  await shot(manager, 'loans-portfolio');
 });
