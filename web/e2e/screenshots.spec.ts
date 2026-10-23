@@ -96,4 +96,7 @@ test('MFA and step-up approval', async ({ browser, request }) => {
   await manager.goto('/backoffice/creditos');
   await manager.getByRole('button', { name: 'Ana Morales' }).click();
   await shot(manager, 'loans-portfolio');
+  await manager.getByRole('button', { name: 'Camila Ortiz' }).click();
+  await manager.getByRole('button', { name: 'Aprobar y desembolsar' }).scrollIntoViewIfNeeded();
+  await shot(manager, 'loan-approval');
 });

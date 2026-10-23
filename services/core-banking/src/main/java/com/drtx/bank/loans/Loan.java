@@ -16,20 +16,25 @@ import jakarta.persistence.Version;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
+import com.drtx.bank.shared.error.DomainException;
+import com.drtx.bank.shared.error.ErrorCode;
 import com.drtx.bank.shared.tenancy.TenantOwned;
 
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** A disbursed loan. The outstanding principal only goes down, one collected installment at a time. */
+/**
+ * A loan. Above the institution's four-eyes threshold it starts PENDING_APPROVAL and a second person decides;
+ * once ACTIVE the outstanding principal only goes down, one collected installment at a time.
+ */
 @Entity
 @Table(name = "loans")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Loan extends TenantOwned {
 
-    public enum Status { ACTIVE, PAID_OFF }
+    public enum Status { PENDING_APPROVAL, ACTIVE, PAID_OFF, REJECTED }
 
     @Id
     private UUID id;
@@ -43,11 +48,14 @@ public class Loan extends TenantOwned {
     private Status status;
     private String createdByEmail;
     private Instant createdAt;
+    private String decidedByEmail;
+    private Instant decidedAt;
+    private String decisionNote;
     @Version
     private long version;
 
     Loan(UUID tenantId, UUID customerId, UUID accountId, long principalMinor, int annualRateBps, int termMonths,
-         String createdByEmail) {
+         String createdByEmail, boolean fourEyes) {
         this.id = UUID.randomUUID();
         this.tenantId = tenantId;
         this.customerId = customerId;
@@ -56,9 +64,31 @@ public class Loan extends TenantOwned {
         this.annualRateBps = annualRateBps;
         this.termMonths = termMonths;
         this.outstandingMinor = principalMinor;
-        this.status = Status.ACTIVE;
+        this.status = fourEyes ? Status.PENDING_APPROVAL : Status.ACTIVE;
         this.createdByEmail = createdByEmail;
         this.createdAt = Instant.now();
+    }
+
+    void approve(String approverEmail, String note) {
+        decide(approverEmail, note);
+        status = Status.ACTIVE;
+    }
+
+    void reject(String approverEmail, String note) {
+        decide(approverEmail, note);
+        status = Status.REJECTED;
+    }
+
+    private void decide(String approverEmail, String note) {
+        if (status != Status.PENDING_APPROVAL) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Loan is " + status);
+        }
+        if (createdByEmail.equalsIgnoreCase(approverEmail)) {
+            throw new DomainException(ErrorCode.SEGREGATION_OF_DUTIES, "Whoever granted a loan cannot decide on it");
+        }
+        decidedByEmail = approverEmail;
+        decidedAt = Instant.now();
+        decisionNote = note;
     }
 
     void repay(long principalMinor) {

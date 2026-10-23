@@ -38,7 +38,11 @@ export function MyLoans() {
               <Money amount={l.outstanding} currency="USD" />
             </span>
             <span className="text-sm text-ink-2">
-              {l.status === 'PAID_OFF' ? (
+              {l.status === 'PENDING_APPROVAL' ? (
+                'En aprobación: el dinero llega a tu cuenta cuando se apruebe'
+              ) : l.status === 'REJECTED' ? (
+                'No aprobado'
+              ) : l.status === 'PAID_OFF' ? (
                 'Cancelado'
               ) : (
                 <>
@@ -55,7 +59,7 @@ export function MyLoans() {
           </button>
         ))}
       </div>
-      {current && (
+      {current && loans.data?.find((l) => l.id === current)?.status !== 'PENDING_APPROVAL' && (
         <Section title="Tabla de pagos">
           <LoanSchedule loanId={current} />
         </Section>

@@ -77,7 +77,7 @@ public class LoanService {
 
     public record LoanView(UUID id, String customerName, String accountNumber, BigDecimal principal,
                            BigDecimal outstanding, BigDecimal annualRate, int termMonths, Loan.Status status,
-                           Instant createdAt, InstallmentView next) {
+                           String grantedBy, String decidedBy, Instant createdAt, InstallmentView next) {
     }
 
     public record LoanDetail(LoanView loan, List<InstallmentView> schedule) {
@@ -88,31 +88,67 @@ public class LoanService {
 
     @Transactional
     public LoanView originate(CurrentUser actor, UUID accountId, long principalMinor, int annualRateBps, int months) {
-        Account account = accounts.findById(accountId)
+        Account account = disbursable(accounts.findById(accountId)
                 .filter(a -> a.getType() != Account.Type.INTERNAL && a.getOwnerId() != null)
-                .orElseThrow(() -> DomainException.notFound("Account"));
+                .orElseThrow(() -> DomainException.notFound("Account")));
+        Tenant tenant = tenants.findById(actor.tenantId()).orElseThrow();
+        boolean fourEyes = principalMinor > tenant.getApprovalThresholdMinor();
+        Loan loan = loans.save(new Loan(actor.tenantId(), account.getOwnerId(), accountId, principalMinor,
+                annualRateBps, months, actor.email(), fourEyes));
+        audit.record(actor.tenantId(), actor, fourEyes ? "LOAN_PENDING_APPROVAL" : "LOAN_ORIGINATED", "loan",
+                loan.getId(), "amount=" + principalMinor + " rateBps=" + annualRateBps + " months=" + months);
+        if (!fourEyes) {
+            disburse(loan, account, tenant);
+        }
+        return view(loan, LocalDate.now(zone));
+    }
+
+    /** Second pair of eyes: the caller already passed the MFA step-up (LoanController). */
+    @Transactional
+    public LoanView approve(CurrentUser actor, UUID id, String note) {
+        Loan loan = decidable(id);
+        loan.approve(actor.email(), note);
+        Tenant tenant = tenants.findById(actor.tenantId()).orElseThrow();
+        disburse(loan, disbursable(accounts.findById(loan.getAccountId()).orElseThrow()), tenant);
+        audit.record(actor.tenantId(), actor, "LOAN_APPROVED", "loan", loan.getId(), note);
+        return view(loan, LocalDate.now(zone));
+    }
+
+    @Transactional
+    public LoanView reject(CurrentUser actor, UUID id, String note) {
+        Loan loan = decidable(id);
+        loan.reject(actor.email(), note);
+        audit.record(actor.tenantId(), actor, "LOAN_REJECTED", "loan", loan.getId(), note);
+        return view(loan, LocalDate.now(zone));
+    }
+
+    private Loan decidable(UUID id) {
+        return loans.findById(id).orElseThrow(() -> DomainException.notFound("Loan"));
+    }
+
+    private static Account disbursable(Account account) {
         if (account.getStatus() != Account.Status.ACTIVE) {
             throw new DomainException(ErrorCode.ACCOUNT_BLOCKED, "Account is " + account.getStatus());
         }
-        Tenant tenant = tenants.findById(actor.tenantId()).orElseThrow();
-        Loan loan = loans.save(new Loan(actor.tenantId(), account.getOwnerId(), accountId, principalMinor,
-                annualRateBps, months, actor.email()));
+        return account;
+    }
+
+    /** Schedule from today, money to the customer against the loan portfolio, and a live notice. */
+    private void disburse(Loan loan, Account account, Tenant tenant) {
         LocalDate today = LocalDate.now(zone);
-        LoanSimulator.Result plan = LoanSimulator.simulate(new LoanSimulator.Input(Amounts.fromMinor(principalMinor),
-                BigDecimal.valueOf(annualRateBps, 2), months, LoanSimulator.Method.FRENCH, null));
+        LoanSimulator.Result plan = LoanSimulator.simulate(new LoanSimulator.Input(
+                Amounts.fromMinor(loan.getPrincipalMinor()), BigDecimal.valueOf(loan.getAnnualRateBps(), 2),
+                loan.getTermMonths(), LoanSimulator.Method.FRENCH, null));
         for (LoanSimulator.Row row : plan.schedule()) {
-            installments.save(new LoanInstallment(actor.tenantId(), loan.getId(), row.period(),
+            installments.save(new LoanInstallment(loan.getTenantId(), loan.getId(), row.period(),
                     today.plusMonths(row.period()), cents(row.principal()), cents(row.interest())));
         }
         Account portfolio = accountService.internal(tenant, Account.LOAN_PORTFOLIO);
-        ledger.post(actor.tenantId(), JournalEntry.Type.LOAN_DISBURSEMENT, "LOAN-" + loan.getId(),
-                "Desembolso de crédito", account.getCurrency(),
-                List.of(new Leg(accountId, principalMinor), new Leg(portfolio.getId(), -principalMinor)));
-        notices.send(actor.tenantId(), account.getOwnerId(), CustomerNotices.Type.LoanDisbursed, principalMinor,
-                account.getCurrency(), null, months);
-        audit.record(actor.tenantId(), actor, "LOAN_ORIGINATED", "loan", loan.getId(),
-                "amount=" + principalMinor + " rateBps=" + annualRateBps + " months=" + months);
-        return view(loan, today);
+        ledger.post(loan.getTenantId(), JournalEntry.Type.LOAN_DISBURSEMENT, "LOAN-" + loan.getId(),
+                "Desembolso de crédito", account.getCurrency(), List.of(new Leg(account.getId(), loan.getPrincipalMinor()),
+                        new Leg(portfolio.getId(), -loan.getPrincipalMinor())));
+        notices.send(loan.getTenantId(), loan.getCustomerId(), CustomerNotices.Type.LoanDisbursed,
+                loan.getPrincipalMinor(), account.getCurrency(), null, loan.getTermMonths());
     }
 
     @Transactional(readOnly = true)
@@ -204,7 +240,7 @@ public class LoanService {
         return new LoanView(loan.getId(), users.get(loan.getCustomerId()).getFullName(), number,
                 Amounts.fromMinor(loan.getPrincipalMinor()), Amounts.fromMinor(loan.getOutstandingMinor()),
                 BigDecimal.valueOf(loan.getAnnualRateBps(), 2), loan.getTermMonths(), loan.getStatus(),
-                loan.getCreatedAt(), next);
+                loan.getCreatedByEmail(), loan.getDecidedByEmail(), loan.getCreatedAt(), next);
     }
 
     private static InstallmentView view(LoanInstallment i, LocalDate today) {

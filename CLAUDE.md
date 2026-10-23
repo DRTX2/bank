@@ -44,7 +44,7 @@ computes its code; the login and approvals screens show it for that demo user).
 - Resources a caller may not see return **404**, not 403 (no ID enumeration).
 - Errors: throw `DomainException(ErrorCode.X)`; responses are RFC 9457 problem details. ISO 20022 reason codes live on `ErrorCode`.
 - Domain events go through `OutboxWriter` in the same transaction, never straight to Kafka.
-- Schema changes: add a new Flyway migration (next is `V8__...`). Never edit an applied one.
+- Schema changes: add a new Flyway migration (next is `V9__...`). Never edit an applied one.
 - Docs and code comments in English; UI strings in Spanish. Backend error messages stay English; the UI translates by
   error code / ISO reason in `web/src/lib/errors.ts` — add new codes there.
 - Approving four-eyes transfers is a step-up: `MfaService.requireStepUp` before `TransferService.approve`.

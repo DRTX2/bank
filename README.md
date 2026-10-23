@@ -18,8 +18,8 @@ Every demo user's password is `Kuntur2026!`. The login screen offers one-click r
 how the product changes per role: customer, corporate customer, teller, branch manager, compliance officer,
 auditor, institution admin and platform operator. The branch manager (`gerente@andina.ec`) has two-factor
 authentication on; as a demo user, the screen shows the code an authenticator app would display. The corporate
-customer (`ana@andina.ec`) starts with a loan, so *Mis créditos* and the backoffice *Créditos* portfolio have data;
-*Operaciones en vivo* closes the business day and credits savings interest.
+customer (`ana@andina.ec`) starts with a loan, and Camila's 12,000.00 loan waits in *Créditos* for the branch
+manager's four-eyes approval with MFA; *Operaciones en vivo* closes the business day and credits savings interest.
 
 | | |
 |---|---|
@@ -31,8 +31,8 @@ customer (`ana@andina.ec`) starts with a loan, so *Mis créditos* and the backof
 | 28 granular permissions × 8 system roles, plus custom roles | Dark mode with its own palette, not an automatic inversion |
 | ![Customer loans](docs/screenshots/my-loans.png) | ![Loan portfolio](docs/screenshots/loans-portfolio.png) |
 | Loans: outstanding balance, next installment and the full schedule | Loan portfolio: granting a loan disburses it through the ledger |
-| ![End-of-day close](docs/screenshots/day-close.png) | ![Financial simulators](docs/screenshots/simulators.png) |
-| End-of-day close: one day of savings interest, one journal entry | Simulators: French and German amortization, term deposits, savings goals |
+| ![Four-eyes loan approval](docs/screenshots/loan-approval.png) | ![End-of-day close](docs/screenshots/day-close.png) |
+| Large loans wait for a second manager and a fresh MFA code | End-of-day close: one day of savings interest, one journal entry |
 
 ---
 
@@ -104,7 +104,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Risk review queue:** every held payment shows an *explainable* risk meter, i.e. which signal added how many points against the review and decline thresholds.
 - **Four-eyes approvals with step-up MFA:** transfers above the institution's threshold wait for a second person, who must also enter a fresh code from their authenticator app. Whoever initiated a transfer can never approve it (enforced in the domain model and covered by tests).
 - **Customers and teller operations:** KYC onboarding, cash deposits and withdrawals, account freezing.
-- **Loans:** grant a loan (French amortization) to a customer's account. The disbursement and every installment go through the double-entry ledger (loan portfolio, interest income). The day close collects installments one transaction each, so one short or frozen account never blocks the rest; a missed installment stays overdue and is retried at the next close.
+- **Loans:** grant a loan (French amortization) to a customer's account. Above the institution's four-eyes threshold it waits for a second manager, who approves with a fresh MFA code (the granter cannot decide); only then is the schedule built and the money disbursed. The disbursement and every installment go through the double-entry ledger (loan portfolio, interest income). The day close collects installments one transaction each, so one short or frozen account never blocks the rest; a missed installment stays overdue and is retried at the next close.
 - **End-of-day close with savings interest:** one click, or the 23:55 schedule as a safety net, credits a day of interest (actual/365) to every savings account in a single balanced journal entry against the interest-expense account. Once per institution and business date, audited, and visible to customers as a movement.
 - **Users, roles and permissions:** a permission matrix with 28 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
 - **Tamper-evident audit trail:** SHA-256 hash chains (16 per institution, so audited writes do not queue behind one lock) with one-click integrity verification.
@@ -158,7 +158,7 @@ testing are fixed and documented in the code:
 - **A stale-entity bug turned concurrent teller deposits into 409s**: 9 of 12 failed, because the deposit and the cash vault were read before being locked. The ledger now locks by re-reading rows `FOR UPDATE`, and `CashIntegrationTest` covers it.
 
 **Testing**
-- 126 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
+- 128 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
 - 15 Playwright end-to-end tests against the full Docker stack, run in CI:
   - a transfer that goes through risk review, compliance release, and then four-eyes approval with an MFA step-up;
   - a loan granted in the backoffice, announced live to the customer and shown with its schedule; the day close crediting interest;
@@ -202,7 +202,7 @@ docs/                     ADRs, threat model, ISO 20022 notes, sample pain.001
 | Command | What it does |
 |---|---|
 | `docker compose up --build` | Full stack with demo data on http://localhost:8088 |
-| `./mvnw verify` | 126 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
+| `./mvnw verify` | 128 backend tests (unit, architecture, and integration against real PostgreSQL + Kafka via Testcontainers), JaCoCo, SBOM |
 | `cd web && npm ci && npm run lint && npm test` | ESLint (strict type-checked + a11y + security rules), Vitest |
 | `make e2e` | Playwright end-to-end suite against the running stack |
 | `make load` | k6 load test of the transfer path (`PEAK_RPS=150` by default) |

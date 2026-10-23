@@ -11,7 +11,9 @@ import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
+import com.drtx.bank.identity.MfaService;
 import com.drtx.bank.shared.security.CurrentUser;
 import com.drtx.bank.shared.web.Amounts;
 
@@ -30,9 +32,15 @@ import org.springframework.web.bind.annotation.RestController;
 class LoanController {
 
     private final LoanService loans;
+    private final MfaService mfa;
 
-    LoanController(LoanService loans) {
+    LoanController(LoanService loans, MfaService mfa) {
         this.loans = loans;
+        this.mfa = mfa;
+    }
+
+    /** {@code otp} is the approver's step-up code; rejecting moves no money and does not need one. */
+    record Decision(@Size(max = 255) String note, @Size(max = 10) String otp) {
     }
 
     record Originate(@NotNull UUID accountId,
@@ -59,5 +67,18 @@ class LoanController {
     @PreAuthorize("hasAnyAuthority('loans:read:own', 'loans:read:any')")
     LoanService.LoanDetail detail(CurrentUser user, @PathVariable UUID id) {
         return loans.detail(user, id);
+    }
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasAuthority('loans:originate')")
+    LoanService.LoanView approve(CurrentUser user, @PathVariable UUID id, @Valid @RequestBody Decision body) {
+        mfa.requireStepUp(user, body.otp());
+        return loans.approve(user, id, body.note());
+    }
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasAuthority('loans:originate')")
+    LoanService.LoanView reject(CurrentUser user, @PathVariable UUID id, @Valid @RequestBody Decision body) {
+        return loans.reject(user, id, body.note());
     }
 }

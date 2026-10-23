@@ -11,6 +11,7 @@ evidence.
 | **Spoofing** | Stolen refresh token | Opaque, hashed at rest, rotated on every use; reuse revokes the whole family | `refreshTokenRotatesAndReuseRevokesTheWholeSession` |
 | **Spoofing** | Bypassing CloudFront/WAF by calling the ALB directly | ALB security group admits only the CloudFront prefix list; listener rule requires a secret origin header | `infra/terraform/modules/edge` |
 | **Tampering** | Altering balances or history in the database | Append-only triggers on postings, journal and audit; `CHECK` constraint against overdraft; SHA-256 hash chain on the audit log | `AuditTrailIntegrationTest` |
+| **Tampering** | One insider granting a large loan to an accomplice | Loans above the four-eyes threshold wait for a second manager with a fresh MFA code; the granter cannot decide; disbursement only after approval | `aLoanAboveTheThresholdWaitsForASecondManagerWithAFreshCode` |
 | **Tampering** | Replaying or duplicating a payment | Idempotency key with payload fingerprint; `MsgId` uniqueness for pain.001 (`DUPL`) | `idempotencyKeyPreventsDoublePayment` |
 | **Tampering** | Malicious XML (XXE, billion laughs) | DTDs disabled, no external entities, secure processing, 2 MB and 500-transaction caps | `Pain001ParserTest.blocksXxeAttacks` |
 | **Tampering** | Tampered container image in the registry | Keyless cosign signatures, verified before promotion to ECR; immutable ECR tags | `containers.yml`, `deploy.yml` |

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Can } from '../../components/Can';
+import { DemoCode } from '../../components/DemoCode';
 import { LoanSchedule } from '../../components/LoanSchedule';
 import {
   Button,
@@ -15,6 +16,7 @@ import {
   Table,
 } from '../../components/ui';
 import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
 import { formatBusinessDate, groupIban, money, percent } from '../../lib/format';
 import type { Account, Loan } from '../../lib/types';
 
@@ -27,6 +29,7 @@ function installment(principal: number, annualRatePct: number, months: number): 
 export function Loans() {
   const loans = useQuery({ queryKey: ['loans'], queryFn: () => api<Loan[]>('/api/v1/loans') });
   const [selected, setSelected] = useState<string | null>(null);
+  const current = loans.data?.find((l) => l.id === selected);
 
   return (
     <>
@@ -67,11 +70,17 @@ export function Loans() {
                     </td>
                     <td className="num whitespace-nowrap px-4 py-2.5 text-right">{percent(l.annualRate)}</td>
                     <td className="whitespace-nowrap px-4 py-2.5">
-                      {l.status === 'PAID_OFF'
-                        ? 'Cancelado'
-                        : l.next
-                          ? formatBusinessDate(l.next.dueDate)
-                          : '—'}
+                      {l.status === 'PENDING_APPROVAL' ? (
+                        <span className="font-medium text-quinoa">Por aprobar</span>
+                      ) : l.status === 'REJECTED' ? (
+                        'Rechazado'
+                      ) : l.status === 'PAID_OFF' ? (
+                        'Cancelado'
+                      ) : l.next ? (
+                        formatBusinessDate(l.next.dueDate)
+                      ) : (
+                        '—'
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -83,12 +92,18 @@ export function Loans() {
           <OriginateForm onGranted={setSelected} />
         </Can>
       </div>
-      {selected && (
+      {current?.status === 'PENDING_APPROVAL' ? (
         <div className="mt-10">
-          <Section title="Tabla de pagos">
-            <LoanSchedule loanId={selected} />
-          </Section>
+          <Decision loan={current} />
         </div>
+      ) : (
+        selected && (
+          <div className="mt-10">
+            <Section title="Tabla de pagos">
+              <LoanSchedule loanId={selected} />
+            </Section>
+          </div>
+        )
       )}
     </>
   );
@@ -180,6 +195,76 @@ function OriginateForm({ onGranted }: { onGranted: (id: string) => void }) {
           Otorgar y desembolsar
         </Button>
       </form>
+    </Section>
+  );
+}
+
+/** Four-eyes: someone other than the granter approves, with a fresh code; rejecting moves no money. */
+function Decision({ loan }: { loan: Loan }) {
+  const { session } = useAuth();
+  const queryClient = useQueryClient();
+  const [code, setCode] = useState('');
+  const decide = useMutation({
+    mutationFn: (decision: 'approve' | 'reject') =>
+      api<Loan>(`/api/v1/loans/${loan.id}/${decision}`, {
+        method: 'POST',
+        body: { note: 'Comité de crédito', otp: decision === 'approve' ? code : undefined },
+      }),
+    onSuccess: () => {
+      setCode('');
+      void queryClient.invalidateQueries({ queryKey: ['loans'] });
+    },
+  });
+  const own = session?.user.email.toLowerCase() === loan.grantedBy.toLowerCase();
+
+  return (
+    <Section title="Aprobación del crédito">
+      <div className="flex max-w-md flex-col gap-4">
+        <p>
+          <Money amount={loan.principal} currency="USD" className="font-medium" /> para {loan.customerName}, a{' '}
+          {loan.termMonths} meses al <span className="num">{percent(loan.annualRate)}</span>. Supera el umbral
+          de cuatro ojos de la institución: otra persona lo aprueba con un código de verificación, y recién
+          entonces se desembolsa.
+        </p>
+        <p className="text-sm text-ink-2">Otorgado por {loan.grantedBy}.</p>
+        {own ? (
+          <p className="font-medium text-quinoa">Otorgaste este crédito: otra persona debe aprobarlo.</p>
+        ) : (
+          <Can any={['loans:originate']}>
+            <Field
+              label="Código de verificación"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value.replace(/\D/g, ''));
+              }}
+            />
+            {session && <DemoCode email={session.user.email} />}
+            <ErrorNote error={decide.error} />
+            <div className="flex flex-wrap gap-3">
+              <Button
+                disabled={code.length !== 6 || decide.isPending}
+                onClick={() => {
+                  decide.mutate('approve');
+                }}
+              >
+                Aprobar y desembolsar
+              </Button>
+              <Button
+                variant="quiet"
+                disabled={decide.isPending}
+                onClick={() => {
+                  decide.mutate('reject');
+                }}
+              >
+                Rechazar
+              </Button>
+            </div>
+          </Can>
+        )}
+      </div>
     </Section>
   );
 }

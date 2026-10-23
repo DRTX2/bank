@@ -39,6 +39,15 @@ class LoanIntegrationTest extends IntegrationTest {
                 Long.class, customer.userId().toString(), type);
     }
 
+    private ResultActions decide(String token, String loanId, String decision, String otp) throws Exception {
+        Map<String, Object> body = new java.util.HashMap<>(Map.of("note", "Comité de crédito"));
+        if (otp != null) {
+            body.put("otp", otp);
+        }
+        return mvc.perform(post("/api/v1/loans/" + loanId + "/" + decision).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json(body)));
+    }
+
     private ResultActions originate(String token, UUID accountId, String principal, String rate, int months)
             throws Exception {
         return mvc.perform(post("/api/v1/loans").header("Authorization", "Bearer " + token)
@@ -104,6 +113,52 @@ class LoanIntegrationTest extends IntegrationTest {
         mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + manager))
                 .andExpect(jsonPath("$.loan.outstanding").value(500.0))
                 .andExpect(jsonPath("$.schedule[0].status").value("PENDING"));
+    }
+
+    @Test
+    void aLoanAboveTheThresholdWaitsForASecondManagerWithAFreshCode() throws Exception {
+        Customer borrower = newAndinaCustomer("0");
+        Officer granter = newMfaManager();
+        Officer approver = newMfaManager();
+
+        // Andina's four-eyes threshold is 5,000.00: nothing is disbursed until someone else approves
+        String id = JsonPath.read(originate(granter.token(), borrower.accountId(), "9000.00", "14.5", 24)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("PENDING_APPROVAL"))
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        assertThat(balance(borrower.token(), borrower.accountId())).isEqualByComparingTo("0.00");
+        assertThat(notices(borrower, "LoanDisbursed")).isZero();
+
+        decide(granter.token(), id, "approve", otp(granter.mfaSecret(), 1))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("SEGREGATION_OF_DUTIES"));
+        decide(approver.token(), id, "approve", null)
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("STEP_UP_FAILED"));
+        decide(approver.token(), id, "approve", otp(approver.mfaSecret(), 1))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.decidedBy").value(approver.email()));
+
+        assertThat(balance(borrower.token(), borrower.accountId())).isEqualByComparingTo("9000.00");
+        assertThat(notices(borrower, "LoanDisbursed")).isEqualTo(1);
+        mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(jsonPath("$.schedule.length()").value(24));
+    }
+
+    @Test
+    void aRejectedLoanMovesNoMoney() throws Exception {
+        Customer borrower = newAndinaCustomer("0");
+        String granter = newMfaManager().token();
+        String id = JsonPath.read(originate(granter, borrower.accountId(), "7000.00", "18", 12)
+                .andReturn().getResponse().getContentAsString(), "$.id");
+
+        decide(newMfaManager().token(), id, "reject", null)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("REJECTED"));
+        assertThat(balance(borrower.token(), borrower.accountId())).isEqualByComparingTo("0.00");
+        mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(jsonPath("$.schedule.length()").value(0));
     }
 
     @Test

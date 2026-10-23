@@ -80,11 +80,11 @@ class DemoDataSeeder implements ApplicationRunner {
                 new Staff("gerente", "Martina Salazar", SystemRole.BRANCH_MANAGER, DEMO_MFA_SECRET),
                 new Staff("cumplimiento", "Andrés Villacís", SystemRole.COMPLIANCE_OFFICER),
                 new Staff("auditor", "Lucía Cárdenas", SystemRole.AUDITOR)), List.of(
-                new Customer("ana", "Ana Morales", "1712345678", true, 25_000_00, 8_000_00),
+                new Customer("ana", "Ana Morales", "1712345678", true, 25_000_00, 4_500_00),
                 new Customer("luis", "Luis Guamán", "1723456789", false, 3_500_00),
                 new Customer("sofia", "Sofía Andrade", "1734567890", false, 8_200_00),
                 new Customer("mateo", "Mateo Chicaiza", "1745678901", false, 1_250_00),
-                new Customer("camila", "Camila Ortiz", "1756789012", false, 15_600_00),
+                new Customer("camila", "Camila Ortiz", "1756789012", false, 15_600_00, 12_000_00),
                 new Customer("jorge", "Jorge Pilataxi", "1767890123", false, 640_00),
                 new Customer("elena", "Elena Rivadeneira", "1778901234", false, 4_100_00)));
 
@@ -105,7 +105,10 @@ class DemoDataSeeder implements ApplicationRunner {
         }
     }
 
-    /** {@code loanMinor} > 0 grants a demo loan (24 months at 14.50 %) into the savings account. */
+    /**
+     * {@code loanMinor} > 0 grants a demo loan (24 months at 14.50 %) into the savings account; above the
+     * institution's four-eyes threshold it waits for the branch manager's approval.
+     */
     private record Customer(String user, String name, String nationalId, boolean corporate, long openingMinor,
                             long loanMinor) {
         Customer(String user, String name, String nationalId, boolean corporate, long openingMinor) {

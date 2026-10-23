@@ -140,7 +140,9 @@ export interface Loan {
   outstanding: number;
   annualRate: number;
   termMonths: number;
-  status: 'ACTIVE' | 'PAID_OFF';
+  status: 'PENDING_APPROVAL' | 'ACTIVE' | 'PAID_OFF' | 'REJECTED';
+  grantedBy: string;
+  decidedBy: string | null;
   createdAt: string;
   next: Installment | null;
 }
