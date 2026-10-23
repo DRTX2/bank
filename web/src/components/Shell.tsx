@@ -24,7 +24,8 @@ import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 
 import { useAuth } from '../lib/auth';
-import { money, roleLabel } from '../lib/format';
+import { roleLabel } from '../lib/format';
+import { toastText } from '../lib/notifications';
 import { useStomp } from '../lib/realtime';
 import type { Notification } from '../lib/types';
 
@@ -195,21 +196,18 @@ export function Shell() {
         aria-live="polite"
         className="fixed bottom-4 right-4 z-40 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2"
       >
-        {toasts.map((t) => (
-          <div
-            key={`${t.transferId}-${t.type}`}
-            className="rounded-lg border border-line bg-surface p-3 text-sm shadow-lg"
-          >
-            <p className="font-medium">
-              {t.direction === 'IN' ? 'Recibiste ' : 'Enviaste '}
-              <span className="num">{money(t.amount, t.currency)}</span>
-            </p>
-            <p className="text-ink-2">
-              {t.direction === 'IN' ? 'Desde' : 'A'} {t.counterparty} (
-              {t.status.toLowerCase().replaceAll('_', ' ')})
-            </p>
-          </div>
-        ))}
+        {toasts.map((t) => {
+          const [title, detail] = toastText(t);
+          return (
+            <div
+              key={'transferId' in t ? `${t.transferId}-${t.type}` : t.id}
+              className="rounded-lg border border-line bg-surface p-3 text-sm shadow-lg"
+            >
+              <p className="font-medium">{title}</p>
+              <p className="text-ink-2">{detail}</p>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

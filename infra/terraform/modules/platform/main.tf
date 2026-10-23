@@ -301,6 +301,8 @@ resource "random_password" "origin_verify" {
 
 locals {
   kafka_topic_arn = "${replace(module.data.kafka_cluster_arn, ":cluster/", ":topic/")}/bank.payments.*"
+  # Customer notifications (loans, interest): only core-banking reads them, but the policy is shared
+  kafka_notice_arn = "${replace(module.data.kafka_cluster_arn, ":cluster/", ":topic/")}/bank.customer.*"
   kafka_group_arn = "${replace(module.data.kafka_cluster_arn, ":cluster/", ":group/")}/*"
   common_env = {
     SPRING_PROFILES_ACTIVE = "aws"
@@ -317,7 +319,7 @@ data "aws_iam_policy_document" "kafka" {
   statement {
     actions = ["kafka-cluster:DescribeTopic", "kafka-cluster:CreateTopic", "kafka-cluster:WriteData",
     "kafka-cluster:ReadData"]
-    resources = [local.kafka_topic_arn]
+    resources = [local.kafka_topic_arn, local.kafka_notice_arn]
   }
   statement {
     actions   = ["kafka-cluster:AlterGroup", "kafka-cluster:DescribeGroup"]

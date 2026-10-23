@@ -17,6 +17,9 @@ test('a manager grants a loan and the customer sees the money and the schedule',
   });
   expect(created.status()).toBe(201);
 
+  // The customer is online before the grant: the notice must arrive over WebSocket, without a reload
+  const own = await browser.newPage();
+  await uiLogin(own, customer.email);
   await uiLogin(page, manager);
   await page.goto('/backoffice/creditos');
   await page.getByLabel('Cuenta del cliente').selectOption({ value: customer.accountId });
@@ -26,9 +29,9 @@ test('a manager grants a loan and the customer sees the money and the schedule',
   await page.getByRole('button', { name: 'Otorgar y desembolsar' }).click();
   await expect(page.getByRole('heading', { name: 'Tabla de pagos' })).toBeVisible();
 
+  await expect(own.getByText(/^Recibiste un crédito de/)).toBeVisible();
+
   // 1,200.00 at 12 % over 12 months: French installment of 106.62, credited to the customer's account
-  const own = await browser.newPage();
-  await uiLogin(own, customer.email);
   await own.goto('/banca/creditos');
   await expect(own.getByText('Próxima cuota:')).toBeVisible();
   await expect(own.getByRole('cell', { name: /106,62/ }).first()).toBeVisible();

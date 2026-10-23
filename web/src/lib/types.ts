@@ -85,7 +85,7 @@ export interface PaymentEvent {
   occurredAt: string;
 }
 
-export interface Notification {
+export interface TransferNotification {
   transferId: string;
   type: string;
   direction: 'IN' | 'OUT';
@@ -149,3 +149,15 @@ export interface LoanDetail {
   loan: Loan;
   schedule: Installment[];
 }
+
+/** Loans and interest: not payments, so they travel on their own topic (CustomerNotices on the server). */
+export interface CustomerNotice {
+  id: string;
+  type: 'LoanDisbursed' | 'InstallmentCollected' | 'InstallmentMissed' | 'InterestCredited';
+  amount: number;
+  currency: string;
+  installment: number | null;
+  installments: number | null;
+}
+
+export type Notification = TransferNotification | CustomerNotice;

@@ -17,6 +17,7 @@ import com.drtx.bank.ledger.LedgerService;
 import com.drtx.bank.ledger.LedgerService.Leg;
 import com.drtx.bank.platform.Tenant;
 import com.drtx.bank.platform.TenantRepository;
+import com.drtx.bank.realtime.CustomerNotices;
 import com.drtx.bank.shared.audit.AuditService;
 import com.drtx.bank.shared.error.DomainException;
 import com.drtx.bank.shared.error.ErrorCode;
@@ -49,12 +50,14 @@ public class LoanService {
     private final TenantRepository tenants;
     private final LedgerService ledger;
     private final AuditService audit;
+    private final CustomerNotices notices;
     private final TenantScope scope;
     private final ZoneId zone;
 
     LoanService(LoanRepository loans, LoanInstallmentRepository installments, AccountRepository accounts,
                 AccountService accountService, UserService users, TenantRepository tenants, LedgerService ledger,
-                AuditService audit, TenantScope scope, @Value("${bank.business-zone}") String zone) {
+                AuditService audit, CustomerNotices notices, TenantScope scope,
+                @Value("${bank.business-zone}") String zone) {
         this.loans = loans;
         this.installments = installments;
         this.accounts = accounts;
@@ -63,6 +66,7 @@ public class LoanService {
         this.tenants = tenants;
         this.ledger = ledger;
         this.audit = audit;
+        this.notices = notices;
         this.scope = scope;
         this.zone = ZoneId.of(zone);
     }
@@ -104,6 +108,8 @@ public class LoanService {
         ledger.post(actor.tenantId(), JournalEntry.Type.LOAN_DISBURSEMENT, "LOAN-" + loan.getId(),
                 "Desembolso de crédito", account.getCurrency(),
                 List.of(new Leg(accountId, principalMinor), new Leg(portfolio.getId(), -principalMinor)));
+        notices.send(actor.tenantId(), account.getOwnerId(), CustomerNotices.Type.LoanDisbursed, principalMinor,
+                account.getCurrency(), null, months);
         audit.record(actor.tenantId(), actor, "LOAN_ORIGINATED", "loan", loan.getId(),
                 "amount=" + principalMinor + " rateBps=" + annualRateBps + " months=" + months);
         return view(loan, today);
@@ -140,6 +146,7 @@ public class LoanService {
                 collected++;
             } catch (DomainException e) {
                 missed++;
+                notifyMissed(tenantId, id);
             } catch (RuntimeException e) {
                 missed++;
                 log.warn("Installment {} not collected", id, e);
@@ -167,9 +174,22 @@ public class LoanService {
                 "Cuota " + due.getNumber() + "/" + loan.getTermMonths() + " de crédito", tenant.getCurrency(), legs);
         due.paid(journal.getId());
         loan.repay(due.getPrincipalMinor());
+        notices.send(loan.getTenantId(), loan.getCustomerId(), CustomerNotices.Type.InstallmentCollected,
+                due.amountMinor(), tenant.getCurrency(), due.getNumber(), loan.getTermMonths());
         audit.record(loan.getTenantId(), null, "LOAN_INSTALLMENT_COLLECTED", "loan", loan.getId(),
                 "installment=" + due.getNumber() + " amount=" + due.amountMinor());
         return null;
+    }
+
+    /** Tells the customer, in a transaction of its own: the collection attempt itself was rolled back. */
+    private void notifyMissed(UUID tenantId, UUID installmentId) {
+        scope.inTenant(tenantId, () -> {
+            LoanInstallment due = installments.findById(installmentId).orElseThrow();
+            Loan loan = loans.findById(due.getLoanId()).orElseThrow();
+            notices.send(tenantId, loan.getCustomerId(), CustomerNotices.Type.InstallmentMissed, due.amountMinor(),
+                    tenants.findById(tenantId).orElseThrow().getCurrency(), due.getNumber(), loan.getTermMonths());
+            return null;
+        });
     }
 
     /** Simulator rows are already rounded to the cent; zero is valid here (interest at 0 %), unlike API input. */

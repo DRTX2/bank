@@ -45,6 +45,9 @@ class DayCloseIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.interest").value(0.82))
                 .andExpect(jsonPath("$.closedBy").value("admin@" + domain));
         assertThat(balance(saver.token(), saver.accountId())).isEqualByComparingTo("10000.82");
+        assertThat(dba().queryForObject(
+                "select count(*) from outbox_events where event_type = 'InterestCredited' and aggregate_id = ?",
+                Long.class, saver.userId().toString())).isEqualTo(1);
 
         mvc.perform(post("/api/v1/ops/day-closes").header("Authorization", "Bearer " + admin))
                 .andExpect(status().isConflict())

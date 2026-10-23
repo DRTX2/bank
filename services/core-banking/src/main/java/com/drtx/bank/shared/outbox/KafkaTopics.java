@@ -17,4 +17,9 @@ class KafkaTopics {
     NewTopic paymentsTopic(@Value("${bank.kafka.payments-topic}") String topic) {
         return TopicBuilder.name(topic).partitions(6).build();
     }
+
+    @Bean
+    NewTopic notificationsTopic(@Value("${bank.kafka.notifications-topic}") String topic) {
+        return TopicBuilder.name(topic).partitions(3).build();
+    }
 }

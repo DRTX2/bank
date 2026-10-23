@@ -16,6 +16,7 @@ import com.drtx.bank.ledger.LedgerService;
 import com.drtx.bank.loans.LoanService;
 import com.drtx.bank.platform.Tenant;
 import com.drtx.bank.platform.TenantRepository;
+import com.drtx.bank.realtime.CustomerNotices;
 import com.drtx.bank.shared.audit.AuditService;
 import com.drtx.bank.shared.error.DomainException;
 import com.drtx.bank.shared.error.ErrorCode;
@@ -47,12 +48,13 @@ public class DayCloseService {
     private final LedgerService ledger;
     private final AuditService audit;
     private final LoanService loans;
+    private final CustomerNotices notices;
     private final TenantScope scope;
     private final ZoneId zone;
 
     DayCloseService(DayCloseRepository closes, AccountRepository accounts, AccountService accountService,
                     TenantRepository tenants, LedgerService ledger, AuditService audit, LoanService loans,
-                    TenantScope scope, @Value("${bank.business-zone}") String zone) {
+                    CustomerNotices notices, TenantScope scope, @Value("${bank.business-zone}") String zone) {
         this.closes = closes;
         this.accounts = accounts;
         this.accountService = accountService;
@@ -60,6 +62,7 @@ public class DayCloseService {
         this.ledger = ledger;
         this.audit = audit;
         this.loans = loans;
+        this.notices = notices;
         this.scope = scope;
         this.zone = ZoneId.of(zone);
     }
@@ -119,6 +122,8 @@ public class DayCloseService {
             if (interest > 0) {
                 legs.add(new LedgerService.Leg(account.getId(), interest));
                 total += interest;
+                notices.send(tenantId, account.getOwnerId(), CustomerNotices.Type.InterestCredited, interest,
+                        account.getCurrency(), null, null);
             }
         }
         int credited = legs.size();

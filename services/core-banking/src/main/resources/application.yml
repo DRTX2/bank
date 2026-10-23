@@ -115,6 +115,7 @@ bank:
     fail-open-below-minor: 5000
   kafka:
     payments-topic: bank.payments.events.v1
+    notifications-topic: bank.customer.notifications.v1
   outbox:
     poll-interval: 250ms
   demo:

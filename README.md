@@ -54,14 +54,16 @@ flowchart LR
     PAY --> LEDGER[(Double-entry ledger)]
     PAY --> OUTBOX[(Transactional outbox)]
     ISO[ISO 20022<br/>pain.001/002 · pacs.008 · camt.053] --> PAY
+    LOANS[Loans + day close<br/>interest, installments] --> LEDGER
+    LOANS --> OUTBOX
     RELAY[Outbox relay] --> OUTBOX
     WS[WebSocket gateway]
   end
 
   PAY -- gRPC ScoreTransfer<br/>500 ms deadline --> RISK
-  RELAY -- bank.payments.events.v1 --> KAFKA[(Kafka / MSK)]
+  RELAY -- bank.payments.events.v1<br/>bank.customer.notifications.v1 --> KAFKA[(Kafka / MSK)]
   KAFKA --> WS
-  KAFKA --> FEAT
+  KAFKA -- payments only --> FEAT
 
   subgraph RISK[risk-engine  ·  gRPC server]
     RULES[Explainable rules] --> FEAT[(Feature store)]
@@ -90,7 +92,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Accounts and movements:** balances update live, and a camt.053 statement downloads in one click.
 - **Transfers:** IBAN-style account numbers with ISO 13616 check digits, so a typo is caught before any money moves. Every transfer is idempotent: retries and double clicks never pay twice.
 - **Bulk payments (corporate):** upload a **pain.001** payroll/supplier file and get back a **pain.002** report with the status and ISO reason code of every payment.
-- **Loans:** each loan's outstanding balance, next installment and full amortization schedule (paid, pending, overdue). Installments are debited automatically at the day close.
+- **Loans:** each loan's outstanding balance, next installment and full amortization schedule (paid, pending, overdue). Installments are debited automatically at the day close, and the customer hears about it live: disbursement, installment paid or bounced, interest credited (outbox → Kafka → WebSocket, on a topic of its own so the risk engine never sees it).
 - **Financial simulators:**
   - Loan amortization (French and German systems, with credit-life insurance and effective annual rate)
   - Term deposit (360-day year, withholding tax)
@@ -157,13 +159,13 @@ testing are fixed and documented in the code:
 
 **Testing**
 - 126 backend tests: unit, architecture, and integration against real PostgreSQL and Kafka (Testcontainers), including concurrency (20 parallel transfers against one balance, 12 parallel deposits against one vault) and a poison-message test for the dead-letter topic.
-- 13 Playwright end-to-end tests against the full Docker stack, run in CI:
+- 15 Playwright end-to-end tests against the full Docker stack, run in CI:
   - a transfer that goes through risk review, compliance release, and then four-eyes approval with an MFA step-up;
-  - a loan granted in the backoffice, credited to the customer and shown with its schedule; the day close crediting interest;
+  - a loan granted in the backoffice, announced live to the customer and shown with its schedule; the day close crediting interest;
   - live WebSocket delivery to both the ops feed and the receiving customer;
   - RBAC and tenant isolation;
   - no horizontal overflow on any page, on desktop and on mobile.
-- 11 front-end unit tests, including the browser TOTP against the RFC 6238 vectors (the same vectors as the server).
+- 13 front-end unit tests, including the browser TOTP against the RFC 6238 vectors (the same vectors as the server).
 
 **Observability**
 - Structured ECS JSON logs, Prometheus metrics (`kuntur.transfers.*`, `kuntur.risk.latency` p95/p99, outbox throughput) and OpenTelemetry tracing.

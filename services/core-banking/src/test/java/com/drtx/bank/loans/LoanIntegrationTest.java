@@ -31,6 +31,14 @@ class LoanIntegrationTest extends IntegrationTest {
         return jdbc.queryForObject("select id from tenants where code = 'ANDN'", UUID.class);
     }
 
+    /** Customer notifications queued in the outbox for the borrower (delivered over WebSocket by the relay). */
+    private long notices(Customer customer, String type) {
+        return dba().queryForObject("""
+                select count(*) from outbox_events
+                where topic = 'bank.customer.notifications.v1' and aggregate_id = ? and event_type = ?""",
+                Long.class, customer.userId().toString(), type);
+    }
+
     private ResultActions originate(String token, UUID accountId, String principal, String rate, int months)
             throws Exception {
         return mvc.perform(post("/api/v1/loans").header("Authorization", "Bearer " + token)
@@ -51,6 +59,7 @@ class LoanIntegrationTest extends IntegrationTest {
                 .andExpect(jsonPath("$.next.amount").value(106.62))
                 .andReturn().getResponse().getContentAsString(), "$.id");
         assertThat(balance(borrower.token(), borrower.accountId())).isEqualByComparingTo("1200.00");
+        assertThat(notices(borrower, "LoanDisbursed")).isEqualTo(1);
 
         String schedule = mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + borrower.token()))
                 .andExpect(status().isOk())
@@ -65,6 +74,7 @@ class LoanIntegrationTest extends IntegrationTest {
         loans.collectDue(andinaId(), firstDue);
 
         assertThat(balance(borrower.token(), borrower.accountId())).isEqualByComparingTo("1093.38");
+        assertThat(notices(borrower, "InstallmentCollected")).isEqualTo(1);
         mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + borrower.token()))
                 .andExpect(jsonPath("$.loan.outstanding").value(1105.38))
                 .andExpect(jsonPath("$.schedule[0].status").value("PAID"))
@@ -90,6 +100,7 @@ class LoanIntegrationTest extends IntegrationTest {
         loans.collectDue(andinaId(), LocalDate.now(ZoneId.of("America/Guayaquil")).plusMonths(1));
 
         assertThat(balance(manager, borrower.accountId())).isEqualByComparingTo("500.00");
+        assertThat(notices(borrower, "InstallmentMissed")).isEqualTo(1);
         mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + manager))
                 .andExpect(jsonPath("$.loan.outstanding").value(500.0))
                 .andExpect(jsonPath("$.schedule[0].status").value("PENDING"));
