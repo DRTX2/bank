@@ -26,6 +26,9 @@ export const options = {
   thresholds: {
     'http_req_failed{name:transfer}': ['rate<0.01'],
     'http_req_duration{name:transfer}': ['p(95)<500', 'p(99)<1000'],
+    // Always true: listed only so the summary splits outcomes by status (bursts from few accounts trip the velocity rule)
+    'transfer_outcomes{status:COMPLETED}': ['count>=0'],
+    'transfer_outcomes{status:HELD_FOR_REVIEW}': ['count>=0'],
   },
   summaryTrendStats: ['avg', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };

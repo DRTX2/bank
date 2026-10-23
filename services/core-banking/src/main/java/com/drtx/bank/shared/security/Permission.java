@@ -32,6 +32,7 @@ public enum Permission {
     AUDIT_READ("audit:read", "Leer y verificar la bitácora de auditoría"),
     OPS_MONITOR("ops:monitor", "Ver el tablero de operaciones en vivo"),
     OPS_SIMULATE("ops:simulate", "Ejecutar el simulador de tráfico"),
+    DAY_CLOSE("ops:close-day", "Ejecutar el cierre de día y abonar intereses"),
     SIMULATIONS_USE("simulations:use", "Usar los simuladores financieros"),
     TENANTS_MANAGE("tenants:manage", "Dar de alta y suspender instituciones", Scope.PLATFORM);
 

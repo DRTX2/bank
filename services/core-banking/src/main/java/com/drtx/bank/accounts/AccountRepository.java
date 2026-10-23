@@ -24,7 +24,13 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
 
     List<Account> findByTypeNotOrderByCreatedAtDesc(Account.Type type);
 
-    Optional<Account> findFirstByType(Account.Type type);
+    Optional<Account> findByTypeAndAlias(Account.Type type, String alias);
+
+    /** Savings accounts that earn interest at the day close (frozen ones too: freezing only blocks debits). */
+    @Query("""
+            select a from Account a where a.type = com.drtx.bank.accounts.Account.Type.SAVINGS
+              and a.status <> com.drtx.bank.accounts.Account.Status.CLOSED and a.balanceMinor > 0""")
+    List<Account> interestBearing();
 
     @Query("""
             select new com.drtx.bank.accounts.AccountTotals(count(a), coalesce(sum(a.balanceMinor), 0))

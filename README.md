@@ -95,6 +95,7 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 - **Risk review queue:** every held payment shows an *explainable* risk meter, i.e. which signal added how many points against the review and decline thresholds.
 - **Four-eyes approvals with step-up MFA:** transfers above the institution's threshold wait for a second person, who must also enter a fresh code from their authenticator app. Whoever initiated a transfer can never approve it (enforced in the domain model and covered by tests).
 - **Customers and teller operations:** KYC onboarding, cash deposits and withdrawals, account freezing.
+- **End-of-day close with savings interest:** one click, or the 23:55 schedule as a safety net, credits a day of interest (actual/365) to every savings account in a single balanced journal entry against the interest-expense account. Once per institution and business date, audited, and visible to customers as a movement.
 - **Users, roles and permissions:** a permission matrix with 24 granular permissions (`resource:action:scope`), 8 system roles and custom roles.
 - **Tamper-evident audit trail:** SHA-256 hash chains (16 per institution, so audited writes do not queue behind one lock) with one-click integrity verification.
 
@@ -136,9 +137,12 @@ has a different scaling profile, release cadence and data model, so it is a sepa
 
 Warm JVM, 2-minute ramp and hold. The first run after a restart (JIT warm-up) measured p95 157 ms.
 
-Every request is a full transfer: idempotency check, real risk scoring over gRPC, a double-entry booking under
-row locks, an audit hash-chain entry and an outbox event. Three findings from load testing are fixed and documented
-in the code:
+Every request is a full transfer intake: authentication, idempotency check, real risk scoring over gRPC, the
+transfer row, an audit hash-chain entry and an outbox event. The 40 load-test customers each send about two transfers
+a second, which is itself a fraud pattern, so the risk engine's velocity rule holds about 98 % of them for review and
+only the rest reach the double-entry booking (k6 prints the split). Booking under contention is covered by tests
+instead: 20 parallel transfers against one balance, 12 parallel deposits against one vault. Three findings from load
+testing are fixed and documented in the code:
 - **Virtual threads are off on purpose**: on Java 21, blocking inside `synchronized` code in the JDBC, gRPC and Kafka clients *pins* virtual threads to their carrier threads. At 140 transfers/s, p95 was 4.8 s with virtual threads and 27 ms without. They should be re-enabled on Java 24+ (JEP 491).
 - **One audit lock per institution capped throughput**: every audited write held the tenant's hash-chain lock until commit. A thread dump under load showed 180 of 200 request threads waiting for a database connection, while 18 held one and waited on that lock (p95 of several seconds). Records now spread over 16 independent chains per institution, each resource always on the same one, and p95 at 150 transfers/s dropped to 14 ms.
 - **A stale-entity bug turned concurrent teller deposits into 409s**: 9 of 12 failed, because the deposit and the cash vault were read before being locked. The ledger now locks by re-reading rows `FOR UPDATE`, and `CashIntegrationTest` covers it.

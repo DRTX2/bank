@@ -87,6 +87,11 @@ springdoc:
     path: /swagger-ui.html
 
 bank:
+  # Business days (day close, interest) follow this zone, not the server clock.
+  business-zone: ${BUSINESS_ZONE:America/Guayaquil}
+  day-close:
+    # Automatic close for institutions nobody closed by hand ("-" disables it).
+    cron: ${DAY_CLOSE_CRON:0 55 23 * * *}
   security:
     jwt:
       issuer: kuntur-core

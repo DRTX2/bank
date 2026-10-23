@@ -45,7 +45,15 @@ public class AccountService {
     @Transactional
     public Account openVault(Tenant tenant) {
         return accounts.save(new Account(tenant.getId(), AccountNumbers.generate(tenant.getCountry(), tenant.getCode()),
-                null, Account.Type.INTERNAL, tenant.getCurrency(), Long.MAX_VALUE, "Cash vault"));
+                null, Account.Type.INTERNAL, tenant.getCurrency(), Long.MAX_VALUE, Account.VAULT));
+    }
+
+    /** A system-managed account of the institution, opened on first use (e.g. interest expense). */
+    @Transactional
+    public Account internal(Tenant tenant, String alias) {
+        return accounts.findByTypeAndAlias(Account.Type.INTERNAL, alias).orElseGet(() -> accounts.saveAndFlush(
+                new Account(tenant.getId(), AccountNumbers.generate(tenant.getCountry(), tenant.getCode()), null,
+                        Account.Type.INTERNAL, tenant.getCurrency(), Long.MAX_VALUE, alias)));
     }
 
     @Transactional
@@ -126,7 +134,7 @@ public class AccountService {
     @Transactional
     public JournalEntry cash(CurrentUser actor, UUID accountId, long amountMinor, boolean deposit, String reference) {
         Account account = readable(actor, accountId);
-        Account vault = accounts.findFirstByType(Account.Type.INTERNAL).orElseThrow();
+        Account vault = accounts.findByTypeAndAlias(Account.Type.INTERNAL, Account.VAULT).orElseThrow();
         long signed = deposit ? amountMinor : -amountMinor;
         JournalEntry journal = ledger.post(actor.tenantId(),
                 deposit ? JournalEntry.Type.CASH_DEPOSIT : JournalEntry.Type.CASH_WITHDRAWAL,

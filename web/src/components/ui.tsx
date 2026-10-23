@@ -145,6 +145,7 @@ export function Empty({ children }: { children: ReactNode }) {
 // Money and quantity columns are right-aligned in every table so their headers must follow.
 const NUMERIC_HEADS = new Set([
   'Monto',
+  'Cuentas',
   'Saldo',
   'Cuota',
   'Capital',

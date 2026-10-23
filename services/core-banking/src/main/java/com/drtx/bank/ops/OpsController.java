@@ -26,10 +26,12 @@ class OpsController {
 
     private final OpsService ops;
     private final TrafficSimulator simulator;
+    private final DayCloseService dayClose;
 
-    OpsController(OpsService ops, TrafficSimulator simulator) {
+    OpsController(OpsService ops, TrafficSimulator simulator, DayCloseService dayClose) {
         this.ops = ops;
         this.simulator = simulator;
+        this.dayClose = dayClose;
     }
 
     record SimulationRequest(@Min(1) @Max(1000) int transfers, @DecimalMin("0") @DecimalMax("0.5") double fraudRatio,
@@ -61,5 +63,18 @@ class OpsController {
     @PreAuthorize("hasAuthority('ops:simulate')")
     RunView run(@PathVariable UUID id) {
         return RunView.of(simulator.get(id));
+    }
+
+    @GetMapping("/day-closes")
+    @PreAuthorize("hasAuthority('ops:monitor')")
+    DayCloseService.Overview dayCloses() {
+        return dayClose.overview();
+    }
+
+    @PostMapping("/day-closes")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('ops:close-day')")
+    DayCloseService.DayCloseView closeDay(CurrentUser user) {
+        return dayClose.closeToday(user);
     }
 }

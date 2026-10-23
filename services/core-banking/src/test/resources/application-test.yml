@@ -1,4 +1,6 @@
 bank:
+  day-close:
+    cron: "-" # tests close days explicitly; a scheduled close at 23:55 would make them flaky
   security:
     bcrypt-strength: 4
   demo:

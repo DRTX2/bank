@@ -20,6 +20,7 @@ const byCode: Partial<Record<string, string>> = {
   NOT_FOUND: 'No encontramos lo que buscas.',
   CONFLICT: 'Ese registro ya existe.',
   INVALID_STATE: 'La operación ya no es posible en el estado actual.',
+  DAY_ALREADY_CLOSED: 'El día de hoy ya está cerrado: los intereses se abonan una sola vez por día.',
   VALIDATION: 'Revisa los datos del formulario.',
 };
 

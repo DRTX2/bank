@@ -34,6 +34,8 @@ public class Tenant {
     private Status status;
     @Column(name = "approval_threshold_minor")
     private long approvalThresholdMinor;
+    /** Annual nominal rate paid on savings, in basis points (300 = 3.00 %). */
+    private int savingsRateBps = 300;
     private Instant createdAt;
 
     public Tenant(String code, String name, String country, String currency, String bic, long approvalThresholdMinor) {
