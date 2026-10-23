@@ -8,6 +8,7 @@ import com.drtx.bank.accounts.Account;
 import com.drtx.bank.accounts.AccountService;
 import com.drtx.bank.identity.RoleService;
 import com.drtx.bank.identity.UserService;
+import com.drtx.bank.loans.LoanService;
 import com.drtx.bank.platform.Tenant;
 import com.drtx.bank.platform.TenantRepository;
 import com.drtx.bank.platform.TenantService;
@@ -43,15 +44,17 @@ class DemoDataSeeder implements ApplicationRunner {
     private final RoleService roles;
     private final UserService users;
     private final AccountService accounts;
+    private final LoanService loans;
     private final TenantScope scope;
 
     DemoDataSeeder(TenantRepository tenants, TenantService tenantService, RoleService roles, UserService users,
-                   AccountService accounts, TenantScope scope) {
+                   AccountService accounts, LoanService loans, TenantScope scope) {
         this.tenants = tenants;
         this.tenantService = tenantService;
         this.roles = roles;
         this.users = users;
         this.accounts = accounts;
+        this.loans = loans;
         this.scope = scope;
     }
 
@@ -77,7 +80,7 @@ class DemoDataSeeder implements ApplicationRunner {
                 new Staff("gerente", "Martina Salazar", SystemRole.BRANCH_MANAGER, DEMO_MFA_SECRET),
                 new Staff("cumplimiento", "Andrés Villacís", SystemRole.COMPLIANCE_OFFICER),
                 new Staff("auditor", "Lucía Cárdenas", SystemRole.AUDITOR)), List.of(
-                new Customer("ana", "Ana Morales", "1712345678", true, 25_000_00),
+                new Customer("ana", "Ana Morales", "1712345678", true, 25_000_00, 8_000_00),
                 new Customer("luis", "Luis Guamán", "1723456789", false, 3_500_00),
                 new Customer("sofia", "Sofía Andrade", "1734567890", false, 8_200_00),
                 new Customer("mateo", "Mateo Chicaiza", "1745678901", false, 1_250_00),
@@ -102,7 +105,12 @@ class DemoDataSeeder implements ApplicationRunner {
         }
     }
 
-    private record Customer(String user, String name, String nationalId, boolean corporate, long openingMinor) {
+    /** {@code loanMinor} > 0 grants a demo loan (24 months at 14.50 %) into the savings account. */
+    private record Customer(String user, String name, String nationalId, boolean corporate, long openingMinor,
+                            long loanMinor) {
+        Customer(String user, String name, String nationalId, boolean corporate, long openingMinor) {
+            this(user, name, nationalId, corporate, openingMinor, 0);
+        }
     }
 
     private void seedInstitution(Tenant tenant, String domain, List<Staff> staff, List<Customer> customers) {
@@ -119,6 +127,9 @@ class DemoDataSeeder implements ApplicationRunner {
                 Account savings = accounts.onboardCustomer(seeder, c.user() + "@" + domain, c.name(), c.nationalId(),
                         PASSWORD, c.corporate());
                 accounts.cash(seeder, savings.getId(), c.openingMinor(), true, "APERTURA");
+                if (c.loanMinor() > 0) {
+                    loans.originate(seeder, savings.getId(), c.loanMinor(), 1450, 24);
+                }
                 if (c.corporate()) {
                     UUID ownerId = savings.getOwnerId();
                     Account checking = accounts.open(seeder, ownerId, Account.Type.CHECKING, "Corriente empresarial");

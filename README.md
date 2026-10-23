@@ -17,7 +17,9 @@ docker compose up --build        # then open http://localhost:8088
 Every demo user's password is `Kuntur2026!`. The login screen offers one-click role switching, so you can see
 how the product changes per role: customer, corporate customer, teller, branch manager, compliance officer,
 auditor, institution admin and platform operator. The branch manager (`gerente@andina.ec`) has two-factor
-authentication on; as a demo user, the screen shows the code an authenticator app would display.
+authentication on; as a demo user, the screen shows the code an authenticator app would display. The corporate
+customer (`ana@andina.ec`) starts with a loan, so *Mis créditos* and the backoffice *Créditos* portfolio have data;
+*Operaciones en vivo* closes the business day and credits savings interest.
 
 | | |
 |---|---|
