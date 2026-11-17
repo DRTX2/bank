@@ -28,7 +28,7 @@
         <grpc.version>1.85.1</grpc.version>
         <!-- protobuf 4.x runtime (required by the OpenTelemetry OTLP exporter) is compatible with grpc-protobuf 1.85;
              protoc must never be newer than the runtime -->
-        <protobuf.version>4.34.0</protobuf.version>
+        <protobuf.version>4.36.2</protobuf.version>
         <springdoc.version>3.1.1</springdoc.version>
         <archunit.version>1.5.1</archunit.version>
         <msk-iam-auth.version>2.3.9</msk-iam-auth.version>
