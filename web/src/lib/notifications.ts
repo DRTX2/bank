@@ -21,6 +21,8 @@ export function toastText(n: Notification): [string, string] {
       return [`Pagaste la cuota ${cuota} de tu crédito`, `Debitamos ${amount} de tu cuenta.`];
     case 'InstallmentMissed':
       return [`No pudimos cobrar la cuota ${cuota}`, `Deposita ${amount} para ponerte al día.`];
+    case 'LoanPaidOff':
+      return ['Pagaste tu crédito', `Debitamos ${amount} de tu cuenta. Ya no tienes cuotas pendientes.`];
     case 'InterestCredited':
       return [`Ganaste ${amount} de intereses`, 'Abonados en el cierre del día a tu cuenta de ahorro.'];
   }

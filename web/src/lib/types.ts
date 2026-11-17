@@ -121,7 +121,7 @@ export interface PermissionInfo {
   scope: 'TENANT' | 'PLATFORM';
 }
 
-export type InstallmentStatus = 'PAID' | 'PENDING' | 'OVERDUE';
+export type InstallmentStatus = 'PAID' | 'PREPAID' | 'PENDING' | 'OVERDUE';
 
 export interface Installment {
   number: number;
@@ -155,7 +155,7 @@ export interface LoanDetail {
 /** Loans and interest: not payments, so they travel on their own topic (CustomerNotices on the server). */
 export interface CustomerNotice {
   id: string;
-  type: 'LoanDisbursed' | 'InstallmentCollected' | 'InstallmentMissed' | 'InterestCredited';
+  type: 'LoanDisbursed' | 'InstallmentCollected' | 'InstallmentMissed' | 'InterestCredited' | 'LoanPaidOff';
   amount: number;
   currency: string;
   installment: number | null;
@@ -163,3 +163,9 @@ export interface CustomerNotice {
 }
 
 export type Notification = TransferNotification | CustomerNotice;
+
+export interface Payoff {
+  principal: number;
+  interest: number;
+  total: number;
+}

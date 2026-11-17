@@ -81,4 +81,16 @@ class LoanController {
     LoanService.LoanView reject(CurrentUser user, @PathVariable UUID id, @Valid @RequestBody Decision body) {
         return loans.reject(user, id, body.note());
     }
+
+    @GetMapping("/{id}/payoff")
+    @PreAuthorize("hasAuthority('loans:repay:own')")
+    LoanService.Payoff payoffQuote(CurrentUser user, @PathVariable UUID id) {
+        return loans.payoffQuote(user, id);
+    }
+
+    @PostMapping("/{id}/payoff")
+    @PreAuthorize("hasAuthority('loans:repay:own')")
+    LoanService.LoanView payoff(CurrentUser user, @PathVariable UUID id) {
+        return loans.payoff(user, id);
+    }
 }

@@ -7,6 +7,7 @@ import { ErrorNote, Money, Table } from './ui';
 
 const statusLabel: Record<InstallmentStatus, { text: string; tone: string }> = {
   PAID: { text: 'Pagada', tone: 'text-ok' },
+  PREPAID: { text: 'Prepagada', tone: 'text-ok' },
   PENDING: { text: 'Pendiente', tone: 'text-ink-2' },
   OVERDUE: { text: 'Vencida', tone: 'font-medium text-risk' },
 };

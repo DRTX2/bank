@@ -162,6 +162,49 @@ class LoanIntegrationTest extends IntegrationTest {
     }
 
     @Test
+    void aCustomerPaysOffEarlyAndTheOpenInstallmentsCloseAsPrepaid() throws Exception {
+        Customer borrower = newAndinaCustomer("2000.00");
+        Customer stranger = newAndinaCustomer("0");
+        String manager = newMfaManager().token();
+        String id = JsonPath.read(originate(manager, borrower.accountId(), "1200.00", "12", 12)
+                .andReturn().getResponse().getContentAsString(), "$.id");
+
+        // Disbursed today: no interest has accrued yet, so the payoff is the principal
+        mvc.perform(get("/api/v1/loans/" + id + "/payoff").header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(jsonPath("$.interest").value(0.0))
+                .andExpect(jsonPath("$.total").value(1200.0));
+        mvc.perform(post("/api/v1/loans/" + id + "/payoff").header("Authorization", "Bearer " + stranger.token()))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/v1/loans/" + id + "/payoff").header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PAID_OFF"))
+                .andExpect(jsonPath("$.outstanding").value(0.0));
+
+        assertThat(balance(borrower.token(), borrower.accountId())).isEqualByComparingTo("2000.00");
+        assertThat(notices(borrower, "LoanPaidOff")).isEqualTo(1);
+        mvc.perform(get("/api/v1/loans/" + id).header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(jsonPath("$.schedule[0].status").value("PREPAID"))
+                .andExpect(jsonPath("$.schedule[11].status").value("PREPAID"));
+        mvc.perform(post("/api/v1/loans/" + id + "/payoff").header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void aPayoffWithoutFundsIsRefusedWithTheIsoReason() throws Exception {
+        Customer borrower = newAndinaCustomer("0");
+        String id = JsonPath.read(originate(newMfaManager().token(), borrower.accountId(), "800.00", "12", 6)
+                .andReturn().getResponse().getContentAsString(), "$.id");
+        // The disbursement is the only money: spend part of it, then the payoff no longer fits
+        Customer friend = newAndinaCustomer("0");
+        transfer(borrower.token(), borrower.accountId(), friend.accountNumber(), "100.00", key())
+                .andExpect(status().isCreated());
+
+        mvc.perform(post("/api/v1/loans/" + id + "/payoff").header("Authorization", "Bearer " + borrower.token()))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.isoReason").value("AM04"));
+    }
+
+    @Test
     void customersSeeOnlyTheirOwnLoansAndCannotGrantThem() throws Exception {
         Customer borrower = newAndinaCustomer("0");
         Customer other = newAndinaCustomer("0");

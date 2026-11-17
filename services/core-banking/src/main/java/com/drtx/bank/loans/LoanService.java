@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -86,6 +87,9 @@ public class LoanService {
     public record Collection(int collected, int missed) {
     }
 
+    public record Payoff(BigDecimal principal, BigDecimal interest, BigDecimal total) {
+    }
+
     @Transactional
     public LoanView originate(CurrentUser actor, UUID accountId, long principalMinor, int annualRateBps, int months) {
         Account account = disbursable(accounts.findById(accountId)
@@ -149,6 +153,66 @@ public class LoanService {
                         new Leg(portfolio.getId(), -loan.getPrincipalMinor())));
         notices.send(loan.getTenantId(), loan.getCustomerId(), CustomerNotices.Type.LoanDisbursed,
                 loan.getPrincipalMinor(), account.getCurrency(), null, loan.getTermMonths());
+    }
+
+    @Transactional(readOnly = true)
+    public Payoff payoffQuote(CurrentUser actor, UUID id) {
+        Loan loan = owned(actor, id);
+        long interest = accruedInterest(installments.findByLoanIdAndPaidAtIsNullOrderByNumber(id), LocalDate.now(zone));
+        return new Payoff(Amounts.fromMinor(loan.getOutstandingMinor()), Amounts.fromMinor(interest),
+                Amounts.fromMinor(loan.getOutstandingMinor() + interest));
+    }
+
+    /** The customer settles the loan today: outstanding principal plus interest accrued so far, in one entry. */
+    @Transactional
+    public LoanView payoff(CurrentUser actor, UUID id) {
+        Loan loan = owned(actor, id);
+        if (loan.getStatus() != Loan.Status.ACTIVE) {
+            throw new DomainException(ErrorCode.INVALID_STATE, "Loan is " + loan.getStatus());
+        }
+        LocalDate today = LocalDate.now(zone);
+        List<LoanInstallment> open = installments.findByLoanIdAndPaidAtIsNullOrderByNumber(id);
+        long interest = accruedInterest(open, today);
+        long principal = loan.getOutstandingMinor();
+        Tenant tenant = tenants.findById(loan.getTenantId()).orElseThrow();
+        List<Leg> legs = new ArrayList<>(List.of(new Leg(loan.getAccountId(), -(principal + interest)),
+                new Leg(accountService.internal(tenant, Account.LOAN_PORTFOLIO).getId(), principal)));
+        if (interest > 0) {
+            legs.add(new Leg(accountService.internal(tenant, Account.INTEREST_INCOME).getId(), interest));
+        }
+        JournalEntry journal = ledger.post(loan.getTenantId(), JournalEntry.Type.LOAN_REPAYMENT,
+                "LOAN-" + id + "-PAYOFF", "Pago anticipado de crédito", tenant.getCurrency(), legs);
+        open.forEach(i -> i.prepaid(journal.getId()));
+        loan.repay(principal);
+        notices.send(loan.getTenantId(), loan.getCustomerId(), CustomerNotices.Type.LoanPaidOff, principal + interest,
+                tenant.getCurrency(), null, null);
+        audit.record(loan.getTenantId(), actor, "LOAN_PAID_OFF", "loan", id,
+                "principal=" + principal + " interest=" + interest);
+        return view(loan, today);
+    }
+
+    private Loan owned(CurrentUser actor, UUID id) {
+        return loans.findById(id).filter(l -> l.getCustomerId().equals(actor.id()))
+                .orElseThrow(() -> DomainException.notFound("Loan"));
+    }
+
+    /**
+     * Interest owed if the loan were settled {@code today}: whole periods already due, plus the running period pro
+     * rata by days (its scheduled interest times days elapsed over the period length, rounded down to the cent).
+     */
+    static long accruedInterest(List<LoanInstallment> open, LocalDate today) {
+        long interest = 0;
+        for (LoanInstallment next : open) {
+            if (!next.getDueDate().isAfter(today)) {
+                interest += next.getInterestMinor();
+                continue;
+            }
+            LocalDate start = next.getDueDate().minusMonths(1);
+            long period = ChronoUnit.DAYS.between(start, next.getDueDate());
+            long elapsed = Math.clamp(ChronoUnit.DAYS.between(start, today), 0, period);
+            return interest + next.getInterestMinor() * elapsed / period;
+        }
+        return interest;
     }
 
     @Transactional(readOnly = true)
@@ -244,7 +308,8 @@ public class LoanService {
     }
 
     private static InstallmentView view(LoanInstallment i, LocalDate today) {
-        String status = i.getPaidAt() != null ? "PAID" : i.getDueDate().isBefore(today) ? "OVERDUE" : "PENDING";
+        String status = i.isPrepaid() ? "PREPAID" : i.getPaidAt() != null ? "PAID"
+                : i.getDueDate().isBefore(today) ? "OVERDUE" : "PENDING";
         return new InstallmentView(i.getNumber(), i.getDueDate(), Amounts.fromMinor(i.getPrincipalMinor()),
                 Amounts.fromMinor(i.getInterestMinor()), Amounts.fromMinor(i.amountMinor()), status);
     }

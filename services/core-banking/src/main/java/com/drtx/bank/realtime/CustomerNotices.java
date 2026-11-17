@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Component
 public class CustomerNotices {
 
-    public enum Type { LoanDisbursed, InstallmentCollected, InstallmentMissed, InterestCredited }
+    public enum Type { LoanDisbursed, InstallmentCollected, InstallmentMissed, InterestCredited, LoanPaidOff }
 
     public record CustomerNotice(UUID id, UUID customerId, Type type, long amountMinor, String currency,
                                  Integer installment, Integer installments) {

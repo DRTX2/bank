@@ -112,6 +112,8 @@ interface LoanInstallmentRepository extends JpaRepository<LoanInstallment, UUID>
 
     Optional<LoanInstallment> findFirstByLoanIdAndPaidAtIsNullOrderByNumber(UUID loanId);
 
+    List<LoanInstallment> findByLoanIdAndPaidAtIsNullOrderByNumber(UUID loanId);
+
     @Query("select i.id from LoanInstallment i where i.paidAt is null and i.dueDate <= :date order by i.dueDate, i.number")
     List<UUID> dueBy(LocalDate date);
 }

@@ -30,6 +30,7 @@ public class LoanInstallment extends TenantOwned {
     private long interestMinor;
     private Instant paidAt;
     private UUID journalId;
+    private boolean prepaid;
     @Version
     private long version;
 
@@ -45,6 +46,11 @@ public class LoanInstallment extends TenantOwned {
 
     long amountMinor() {
         return principalMinor + interestMinor;
+    }
+
+    void prepaid(UUID payoffJournalId) {
+        paid(payoffJournalId);
+        this.prepaid = true;
     }
 
     void paid(UUID journalId) {

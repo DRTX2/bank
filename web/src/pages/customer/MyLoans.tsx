@@ -1,11 +1,12 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
+import { Can } from '../../components/Can';
 import { LoanSchedule } from '../../components/LoanSchedule';
-import { Empty, ErrorNote, Money, PageHeader, Section } from '../../components/ui';
+import { Button, Empty, ErrorNote, Money, PageHeader, Section } from '../../components/ui';
 import { api } from '../../lib/api';
-import { formatBusinessDate, percent } from '../../lib/format';
-import type { Loan } from '../../lib/types';
+import { formatBusinessDate, money, percent } from '../../lib/format';
+import type { Loan, Payoff } from '../../lib/types';
 
 export function MyLoans() {
   const loans = useQuery({ queryKey: ['loans'], queryFn: () => api<Loan[]>('/api/v1/loans') });
@@ -59,11 +60,70 @@ export function MyLoans() {
           </button>
         ))}
       </div>
+      {current && loans.data?.find((l) => l.id === current)?.status === 'ACTIVE' && (
+        <Can any={['loans:repay:own']}>
+          <PayoffPanel loanId={current} />
+        </Can>
+      )}
       {current && loans.data?.find((l) => l.id === current)?.status !== 'PENDING_APPROVAL' && (
         <Section title="Tabla de pagos">
           <LoanSchedule loanId={current} />
         </Section>
       )}
     </>
+  );
+}
+
+/** Settle the loan today: outstanding principal plus the interest accrued in the running period, nothing more. */
+function PayoffPanel({ loanId }: { loanId: string }) {
+  const queryClient = useQueryClient();
+  const quote = useQuery({
+    queryKey: ['payoff', loanId],
+    queryFn: () => api<Payoff>(`/api/v1/loans/${loanId}/payoff`),
+  });
+  const pay = useMutation({
+    mutationFn: () => api<Loan>(`/api/v1/loans/${loanId}/payoff`, { method: 'POST' }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries();
+    },
+  });
+  const q = quote.data;
+
+  return (
+    <div className="mb-10">
+      <Section title="Pagar por anticipado">
+        <div className="flex max-w-md flex-col gap-4">
+          <ErrorNote error={quote.error ?? pay.error} />
+          {q && (
+            <dl className="grid grid-cols-[1fr_auto] gap-y-1 text-sm">
+              <dt className="text-ink-2">Capital pendiente</dt>
+              <dd className="text-right">
+                <Money amount={q.principal} currency="USD" />
+              </dd>
+              <dt className="text-ink-2">Interés del período hasta hoy</dt>
+              <dd className="text-right">
+                <Money amount={q.interest} currency="USD" />
+              </dd>
+              <dt className="font-medium">Total a pagar hoy</dt>
+              <dd className="text-right font-medium">
+                <Money amount={q.total} currency="USD" />
+              </dd>
+            </dl>
+          )}
+          <p className="text-sm text-ink-2">
+            Se debita de la cuenta del crédito y cierra todas las cuotas pendientes. No hay penalidad por
+            pagar antes.
+          </p>
+          <Button
+            disabled={!q || pay.isPending}
+            onClick={() => {
+              pay.mutate();
+            }}
+          >
+            {q ? `Pagar ${money(q.total)} ahora` : 'Pagar ahora'}
+          </Button>
+        </div>
+      </Section>
+    </div>
   );
 }
