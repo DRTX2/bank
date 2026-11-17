@@ -2,7 +2,7 @@
 # Builds either JVM service: docker build -f services/Dockerfile --build-arg MODULE=core-banking .
 # Glibc build image on purpose: the protobuf plugin downloads a native protoc that does not run on musl/alpine.
 # Build stage runs natively ($BUILDPLATFORM): bytecode is arch-independent, so arm64 images need no QEMU.
-FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk-noble AS build
+FROM --platform=$BUILDPLATFORM eclipse-temurin:25-jdk-noble AS build
 ARG MODULE
 WORKDIR /src
 COPY .mvn .mvn
