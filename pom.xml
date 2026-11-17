@@ -62,7 +62,7 @@
                 <!-- Transitive via kafka-clients; 1.10.x has an insecure temp-file CVE -->
                 <groupId>at.yawk.lz4</groupId>
                 <artifactId>lz4-java</artifactId>
-                <version>1.11.4</version>
+                <version>1.14.0</version>
             </dependency>
             <dependency>
                 <groupId>software.amazon.msk</groupId>
